@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal Finance Tracker
+
+A Next.js application for analyzing and categorizing bank transactions from CSV files. This application helps you organize your finances by providing visual insights into your spending patterns and transaction history.
+
+## Features
+
+- CSV file upload with drag-and-drop support
+- Automatic transaction categorization
+- Financial summary with income, expenses, and balance
+- Visual representation of expenses by category
+- Detailed transaction list with sorting and filtering
+- Responsive design for all devices
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18.0.0 or later
+- npm or yarn package manager
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd house_keeping
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Start the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## CSV File Format
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application expects CSV files with the following columns:
+- `date`: Transaction date (YYYY-MM-DD format)
+- `description`: Transaction description
+- `amount`: Transaction amount (positive for credits, negative for debits)
 
-## Learn More
+Example:
+```csv
+date,description,amount
+2024-03-15,Salary Deposit,5000.00
+2024-03-16,Grocery Store,-150.25
+2024-03-17,Netflix Subscription,-15.99
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Technologies Used
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- Chart.js
+- Papa Parse (CSV parsing)
+- Date-fns
+- Heroicons
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Contributing
 
-## Deploy on Vercel
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License - see the LICENSE file for details.
