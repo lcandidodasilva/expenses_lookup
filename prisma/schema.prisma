@@ -10,43 +10,49 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("POSTGRES_URL")
-  directUrl = env("POSTGRES_URL_NON_POOLING")
+  url      = env("DATABASE_URL")
 }
 
-model Category {
-  id          String        @id @default(cuid())
-  name        String        @unique
-  description String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  transactions Transaction[]
-  patterns    Pattern[]
+enum TransactionType {
+  credit
+  debit
 }
 
-model Pattern {
-  id         String   @id @default(cuid())
-  pattern    String   @unique
-  category   Category @relation(fields: [categoryId], references: [id])
-  categoryId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  confidence Float    @default(1.0)
-  usageCount Int      @default(0)
+enum CategoryName {
+  Housing
+  Transportation
+  Savings
+  Utilities
+  Insurance
+  Healthcare
+  Entertainment
+  Shopping
+  Income
+  Supermarket
+  Delivery
+  Other
 }
 
 model Transaction {
-  id            String    @id @default(cuid())
-  date          DateTime
-  description   String
-  amount        Float
-  type          String    // credit or debit
-  category      Category? @relation(fields: [categoryId], references: [id])
-  categoryId    String?
-  account       String
-  counterparty  String?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  originalCategory String? // To track if the category was changed by user
+  id           String         @id @default(cuid())
+  date         DateTime
+  description  String
+  amount       Float
+  type         TransactionType
+  category     CategoryName
+  account      String
+  counterparty String?
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model CategoryPattern {
+  id         String      @id @default(cuid())
+  pattern    String      @unique
+  category   CategoryName
+  confidence Float       @default(1.0)
+  usageCount Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }

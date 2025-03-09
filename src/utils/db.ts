@@ -1,7 +1,25 @@
 import { PrismaClient } from '@prisma/client';
 import { Transaction as AppTransaction } from '@/types/transaction';
 
-const prisma = new PrismaClient();
+interface PatternType {
+  id: string;
+  pattern: string;
+  categoryId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  confidence: number;
+  usageCount: number;
+}
+
+declare global {
+  var prisma: PrismaClient | undefined;
+}
+
+const prisma = global.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  global.prisma = prisma;
+}
 
 export async function initializeCategories() {
   const defaultCategories = [
@@ -95,7 +113,7 @@ async function updatePatternConfidence(
   if (!category) return;
 
   // Find matching patterns
-  const matchingPatterns = category.patterns.filter(p => 
+  const matchingPatterns = category.patterns.filter((p: PatternType) => 
     description.toLowerCase().includes(p.pattern.toLowerCase())
   );
 
@@ -112,12 +130,16 @@ async function updatePatternConfidence(
   }
 }
 
-export async function getTransactionsByPeriod(start: Date, end: Date) {
+export async function getTransactionsByPeriod(start: Date | string, end: Date | string) {
+  // Ensure dates are Date objects
+  const startDate = start instanceof Date ? start : new Date(start);
+  const endDate = end instanceof Date ? end : new Date(end);
+
   return prisma.transaction.findMany({
     where: {
       date: {
-        gte: start,
-        lte: end,
+        gte: startDate,
+        lte: endDate,
       },
     },
     include: {
@@ -152,4 +174,6 @@ export async function addPattern(categoryName: string, pattern: string) {
       categoryId: category.id,
     },
   });
-} 
+}
+
+export default prisma;

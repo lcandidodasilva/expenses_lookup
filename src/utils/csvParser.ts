@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { Transaction, TransactionCategory } from '@/types/transaction';
+import { Transaction, CategoryName } from '@/types/transaction';
 import { v4 as uuidv4 } from 'uuid';
 import { categorizeThroughGPT } from './gptCategorizer';
 
@@ -14,6 +14,7 @@ export const parseCSV = (file: File): Promise<Transaction[]> => {
             results.data.map(async (row: any) => {
               const amount = parseFloat(row['Amount (EUR)'].replace(',', '.'));
               const description = row['Name / Description'];
+              const category = await categorizeThroughGPT(description);
               
               return {
                 id: uuidv4(),
@@ -21,11 +22,10 @@ export const parseCSV = (file: File): Promise<Transaction[]> => {
                 description: description,
                 amount: Math.abs(amount),
                 type: row['Debit/credit'].toLowerCase() === 'credit' ? 'credit' : 'debit',
-                category: await categorizeThroughGPT(description),
+                category: category,
                 account: row['Account'],
-                counterparty: row['Counterparty'],
-                transactionType: row['Transaction type'],
-                notes: row['Notifications'],
+                counterparty: row['Counterparty'] || null,
+                notes: row['Notifications'] || null,
               };
             })
           );

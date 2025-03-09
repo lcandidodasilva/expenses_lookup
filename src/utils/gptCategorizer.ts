@@ -1,126 +1,8 @@
-import { TransactionCategory } from '@/types/transaction';
+import { CategoryName, DEFAULT_CATEGORIES } from '@/types/transaction';
 
 const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
-// Define common patterns for each category
-const PATTERNS = {
-  SUPERMARKET: [
-    'albert heijn',
-    'ah to go',
-    'ah bezorgservice',
-    'jumbo',
-    'lidl',
-    'aldi',
-    'plus',
-    'dirk',
-    'spar',
-    'hoogvliet',
-    'ekoplaza',
-    'marqt',
-    'deka',
-    'vomar',
-  ],
-  DELIVERY: [
-    'thuisbezorgd',
-    'deliveroo',
-    'uber eats',
-    'just eat',
-    'takeaway',
-    'dominos',
-    'new york pizza',
-    'bezorg',
-    'delivery',
-  ],
-  TRANSPORTATION: [
-    'ns.nl',
-    'ns-',
-    'ov-chipkaart',
-    'ovpay.nl',
-    'gvb',
-    'ret',
-    'htm',
-    'connexxion',
-    'arriva',
-    'uber',
-    'bolt.eu',
-    'shell',
-    'bp',
-    'esso',
-    'total',
-    'q8',
-    'tango',
-    'tinq',
-  ],
-  UTILITIES: [
-    'vodafone',
-    'kpn',
-    't-mobile',
-    'tele2',
-    'ziggo',
-    'eneco',
-    'vattenfall',
-    'essent',
-    'greenchoice',
-    'dunea',
-    'vitens',
-    'pwn',
-    'waternet',
-  ],
-  ENTERTAINMENT: [
-    'netflix',
-    'spotify',
-    'disney+',
-    'videoland',
-    'prime video',
-    'hbo',
-    'pathe',
-    'kinepolis',
-    'vue',
-    'bioscoop',
-    'cinema',
-    'theater',
-    'concert',
-    'spotify',
-    'steam',
-    'playstation',
-    'xbox',
-    'nintendo',
-  ],
-  SHOPPING: [
-    'bol.com',
-    'coolblue',
-    'mediamarkt',
-    'amazon',
-    'zalando',
-    'h&m',
-    'zara',
-    'uniqlo',
-    'primark',
-    'action',
-    'hema',
-    'bijenkorf',
-    'ikea',
-    'wehkamp',
-    'decathlon',
-  ],
-  HEALTHCARE: [
-    'apotheek',
-    'huisarts',
-    'tandarts',
-    'fysio',
-    'ziekenhuis',
-    'hospital',
-    'pharmacy',
-    'medical',
-    'zorg',
-    'cz',
-    'vgz',
-    'menzis',
-    'achmea',
-  ],
-};
-
-export async function categorizeThroughGPT(description: string): Promise<TransactionCategory> {
+export async function categorizeThroughGPT(description: string): Promise<CategoryName> {
   if (!OPENAI_API_KEY) {
     console.warn('OpenAI API key not found. Using fallback categorization.');
     return fallbackCategorization(description);
@@ -137,93 +19,80 @@ export async function categorizeThroughGPT(description: string): Promise<Transac
         model: 'gpt-4',
         messages: [{
           role: 'system',
-          content: `You are a Dutch financial transaction categorizer. Categorize the transaction into exactly one of these categories: Housing, Transportation, Savings, Utilities, Insurance, Healthcare, Entertainment, Shopping, Income, Supermarket, Delivery, Other. 
+          content: `You are a Dutch financial transaction categorizer. Categorize the transaction into exactly one of these categories: ${DEFAULT_CATEGORIES.join(', ')}. 
           
           Common patterns:
-          - Supermarkets: Albert Heijn, Jumbo, Lidl, Plus, Dirk, Aldi
-          - Delivery: Thuisbezorgd, Deliveroo, Uber Eats, Dominos, New York Pizza
-          - Transportation: NS, OV-chipkaart, GVB, RET, HTM, Shell, BP
-          - Utilities: Vodafone, KPN, T-Mobile, Ziggo, Eneco, Vattenfall
-          - Entertainment: Netflix, Spotify, Pathe, Kinepolis, Steam
-          - Shopping: bol.com, Coolblue, MediaMarkt, Action, HEMA
-          - Healthcare: Apotheek, Huisarts, Tandarts, Ziekenhuis
-          - Savings: Spaarrekening, savings transfers
-          - Income: EBay, Connexie, Salary, freelance payments
+          - "Oranje Spaarrekening" and savings transfers are for Savings
+          - Albert Heijn, Jumbo, Lidl, Plus, Dirk, Aldi are Supermarket
+          - Thuisbezorgd, Deliveroo, Uber Eats, Dominos, New York Pizza are Delivery
+          - NS, OV-chipkaart, GVB, RET, HTM, Shell, BP are Transportation
+          - Vodafone, KPN, T-Mobile, Ziggo, Eneco, Vattenfall are Utilities
+          - Netflix, Spotify, Pathe, Kinepolis, Steam are Entertainment
+          - bol.com, Coolblue, MediaMarkt, Action, HEMA are Shopping
+          - Apotheek, Huisarts, Tandarts, Ziekenhuis are Healthcare
+          - Salary, wages, freelance payments are Income
           
-          Respond with just the category name, nothing else.`
+          Respond with ONLY the category name, nothing else.`
         }, {
           role: 'user',
           content: description
         }],
         temperature: 0.3,
-        max_tokens: 20
-      })
+        max_tokens: 10,
+      }),
     });
 
-    const data = await response.json();
-    const category = data.choices[0].message.content.trim() as TransactionCategory;
-    
-    // Validate that the returned category is valid
-    if (isValidCategory(category)) {
-      return category;
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      console.error('Failed to parse GPT response:', error);
+      return fallbackCategorization(description);
     }
-    return fallbackCategorization(description);
+
+    if (!response.ok || !data.choices?.[0]?.message?.content) {
+      console.warn('Invalid GPT response:', data);
+      return fallbackCategorization(description);
+    }
+
+    const category = data.choices[0].message.content.trim() as CategoryName;
+
+    // Validate that the category is one of the allowed values
+    if (!DEFAULT_CATEGORIES.includes(category)) {
+      console.warn(`Invalid category from GPT: ${category}. Using fallback.`);
+      return fallbackCategorization(description);
+    }
+
+    return category;
   } catch (error) {
-    console.error('Error categorizing with GPT:', error);
+    console.error('Error getting category from GPT:', error);
     return fallbackCategorization(description);
   }
 }
 
-function isValidCategory(category: string): category is TransactionCategory {
-  const validCategories: TransactionCategory[] = [
-    'Housing', 'Transportation', 'Savings', 'Utilities', 'Insurance',
-    'Healthcare', 'Entertainment', 'Shopping', 'Income', 'Supermarket',
-    'Delivery', 'Other'
-  ];
-  return validCategories.includes(category as TransactionCategory);
-}
-
-function fallbackCategorization(description: string): TransactionCategory {
-  description = description.toLowerCase();
+function fallbackCategorization(description: string): CategoryName {
+  const lowerDesc = description.toLowerCase();
   
-  // Check for exact matches first
-  if (description.includes('spaarrekening') || description.includes('savings')) {
-    return 'Savings';
-  }
+  // Define patterns for each category
+  const patterns = {
+    Housing: ['rent', 'mortgage', 'housing', 'huur', 'hypotheek', 'vve'],
+    Transportation: ['ns.nl', 'ov-chipkaart', 'ovpay', 'gvb', 'ret', 'htm', 'connexxion', 'arriva', 'uber', 'bolt.eu', 'shell', 'bp', 'esso'],
+    Savings: ['spaarrekening', 'savings', 'oranje spaarrekening'],
+    Utilities: ['vodafone', 'kpn', 't-mobile', 'tele2', 'ziggo', 'eneco', 'vattenfall', 'essent', 'greenchoice', 'water', 'gas'],
+    Insurance: ['insurance', 'verzekering', 'aegon', 'nationale nederlanden', 'centraal beheer'],
+    Healthcare: ['doctor', 'hospital', 'pharmacy', 'medical', 'apotheek', 'huisarts', 'tandarts', 'fysio', 'ziekenhuis'],
+    Entertainment: ['netflix', 'spotify', 'disney+', 'videoland', 'prime video', 'hbo', 'pathe', 'kinepolis', 'vue', 'bioscoop', 'cinema', 'theater', 'concert'],
+    Shopping: ['bol.com', 'coolblue', 'mediamarkt', 'amazon', 'zalando', 'h&m', 'zara', 'uniqlo', 'primark', 'action', 'hema', 'bijenkorf', 'ikea'],
+    Income: ['salary', 'payroll', 'deposit', 'salaris', 'loon', 'ebay marketplaces', 'connexie'],
+    Supermarket: ['albert heijn', 'jumbo', 'lidl', 'aldi', 'plus', 'dirk', 'ah to go', 'ah bezorgservice'],
+    Delivery: ['thuisbezorgd', 'deliveroo', 'uber eats', 'dominos', 'new york pizza', 'takeaway']
+  };
 
-  // Check for income
-  if (description.includes('ebay marketplaces') || 
-      description.includes('connexie') ||
-      description.includes('salary') ||
-      description.includes('salaris') ||
-      description.includes('loon')) {
-    return 'Income';
-  }
-
-  // Check for housing related
-  if (description.includes('huur') || 
-      description.includes('rent') ||
-      description.includes('hypotheek') ||
-      description.includes('mortgage') ||
-      description.includes('vve') ||
-      description.includes('woningborg')) {
-    return 'Housing';
-  }
-
-  // Check patterns for each category
-  for (const [category, patterns] of Object.entries(PATTERNS)) {
-    if (patterns.some(pattern => description.includes(pattern))) {
-      return category as TransactionCategory;
+  // Check each pattern
+  for (const [category, categoryPatterns] of Object.entries(patterns)) {
+    if (categoryPatterns.some(pattern => lowerDesc.includes(pattern.toLowerCase()))) {
+      return category as CategoryName;
     }
-  }
-
-  // Check for insurance
-  if (description.includes('verzekering') || 
-      description.includes('insurance') ||
-      description.includes('aegon') ||
-      description.includes('nationale nederlanden') ||
-      description.includes('centraal beheer')) {
-    return 'Insurance';
   }
 
   return 'Other';

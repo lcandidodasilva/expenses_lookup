@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Transaction, TransactionCategory } from '@/types/transaction';
+import { Transaction, DEFAULT_CATEGORIES } from '@/types/transaction';
 import { format } from 'date-fns';
 
 interface TransactionListProps {
@@ -10,23 +10,18 @@ interface TransactionListProps {
 }
 
 export default function TransactionList({ transactions, onCategoryUpdate }: TransactionListProps) {
-  const [categories, setCategories] = useState<{ name: string }[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Fetch categories when component mounts
-    fetch('/api/categories')
-      .then(response => response.json())
-      .then(data => setCategories(data))
-      .catch(error => console.error('Error fetching categories:', error));
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   const handleCategoryChange = async (transactionId: string, categoryName: string) => {
     try {
+      setLoading(true);
       await onCategoryUpdate(transactionId, categoryName);
       setEditingId(null);
     } catch (error) {
       console.error('Error updating category:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,9 +47,9 @@ export default function TransactionList({ transactions, onCategoryUpdate }: Tran
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {transactions.map((transaction) => (
-              <tr key={transaction.id}>
+              <tr key={transaction.id} className={loading ? 'opacity-50' : ''}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {format(transaction.date, 'MMM dd, yyyy')}
+                  {format(new Date(transaction.date), 'MMM dd, yyyy')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {transaction.description}
@@ -66,10 +61,11 @@ export default function TransactionList({ transactions, onCategoryUpdate }: Tran
                       value={transaction.category}
                       onChange={(e) => handleCategoryChange(transaction.id, e.target.value)}
                       onBlur={() => setEditingId(null)}
+                      disabled={loading}
                     >
-                      {categories.map((category) => (
-                        <option key={category.name} value={category.name}>
-                          {category.name}
+                      {DEFAULT_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
                         </option>
                       ))}
                     </select>

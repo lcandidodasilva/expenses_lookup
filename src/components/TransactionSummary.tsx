@@ -1,6 +1,7 @@
 'use client';
 
-import { Transaction, TransactionCategory } from '@/types/transaction';
+import { useState, useEffect } from 'react';
+import { Transaction, CategoryName } from '@/types/transaction';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -10,7 +11,7 @@ import {
   LinearScale,
   BarElement,
 } from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Pie } from 'react-chartjs-2';
 
 ChartJS.register(
   ArcElement,
@@ -23,6 +24,11 @@ ChartJS.register(
 
 interface TransactionSummaryProps {
   transactions: Transaction[];
+}
+
+interface CategoryTotal {
+  name: CategoryName;
+  amount: number;
 }
 
 export default function TransactionSummary({ transactions }: TransactionSummaryProps) {
@@ -39,17 +45,21 @@ export default function TransactionSummary({ transactions }: TransactionSummaryP
   const balance = totalIncome - totalExpenses;
 
   const categoryTotals = transactions.reduce((acc, transaction) => {
-    if (transaction.type === 'debit' && transaction.category) {
+    if (transaction.type === 'debit') {
       acc[transaction.category] = (acc[transaction.category] || 0) + Math.abs(transaction.amount);
     }
     return acc;
-  }, {} as Record<TransactionCategory, number>);
+  }, {} as Record<CategoryName, number>);
+
+  const sortedCategories = Object.entries(categoryTotals)
+    .map(([name, amount]) => ({ name: name as CategoryName, amount }))
+    .sort((a, b) => b.amount - a.amount);
 
   const pieChartData = {
-    labels: Object.keys(categoryTotals),
+    labels: sortedCategories.map(c => c.name),
     datasets: [
       {
-        data: Object.values(categoryTotals),
+        data: sortedCategories.map(c => c.amount),
         backgroundColor: [
           '#FF6384',
           '#36A2EB',
@@ -60,6 +70,9 @@ export default function TransactionSummary({ transactions }: TransactionSummaryP
           '#FF6384',
           '#36A2EB',
           '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
         ],
       },
     ],
@@ -95,8 +108,30 @@ export default function TransactionSummary({ transactions }: TransactionSummaryP
 
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4">Expense Categories</h2>
-        <div className="h-64">
-          <Pie data={pieChartData} options={{ maintainAspectRatio: false }} />
+        {sortedCategories.length > 0 ? (
+          <div className="h-64">
+            <Pie data={pieChartData} options={{ maintainAspectRatio: false }} />
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center text-gray-500">
+            No expense data available for this period
+          </div>
+        )}
+      </div>
+
+      {/* Category List */}
+      <div className="md:col-span-2 bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold mb-4">Category Breakdown</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedCategories.map((category) => (
+            <div key={category.name} className="p-4 border rounded-lg">
+              <h3 className="font-medium text-gray-700">{category.name}</h3>
+              <p className="text-xl font-bold text-red-600">${category.amount.toFixed(2)}</p>
+              <p className="text-sm text-gray-500">
+                {((category.amount / totalExpenses) * 100).toFixed(1)}% of total expenses
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
