@@ -3,6 +3,20 @@ import { Transaction, CategoryName } from '@/types/transaction';
 import { v4 as uuidv4 } from 'uuid';
 import { categorizeThroughGPT } from './gptCategorizer';
 
+const COLUMN_MAPPINGS = {
+  date: ['Date', 'date', 'DATE', 'Transaction Date', 'transaction_date'],
+  description: ['Name / Description', 'Description', 'description', 'DESCRIPTION', 'Transaction Description'],
+  amount: ['Amount (EUR)', 'Amount', 'amount', 'AMOUNT', 'Transaction Amount'],
+  type: ['Debit/credit', 'Type', 'type', 'TYPE', 'Transaction Type'],
+  account: ['Account', 'account', 'ACCOUNT', 'Account Number'],
+  counterparty: ['Counterparty', 'counterparty', 'COUNTERPARTY', 'Payee'],
+  notes: ['Notifications', 'notes', 'NOTES', 'Memo']
+};
+
+function findColumnName(headers: string[], possibleNames: string[]): string | null {
+  return possibleNames.find(name => headers.includes(name)) || null;
+}
+
 export const parseCSV = (file: File): Promise<Transaction[]> => {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -10,22 +24,48 @@ export const parseCSV = (file: File): Promise<Transaction[]> => {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
+          const headers = Object.keys(results.data[0] || {});
+          
+          // Find the correct column names
+          const dateColumn = findColumnName(headers, COLUMN_MAPPINGS.date);
+          const descriptionColumn = findColumnName(headers, COLUMN_MAPPINGS.description);
+          const amountColumn = findColumnName(headers, COLUMN_MAPPINGS.amount);
+          const typeColumn = findColumnName(headers, COLUMN_MAPPINGS.type);
+          const accountColumn = findColumnName(headers, COLUMN_MAPPINGS.account);
+          const counterpartyColumn = findColumnName(headers, COLUMN_MAPPINGS.counterparty);
+          const notesColumn = findColumnName(headers, COLUMN_MAPPINGS.notes);
+
+          if (!dateColumn || !descriptionColumn || !amountColumn) {
+            throw new Error('Required columns not found in CSV file. Please ensure your file has Date, Description, and Amount columns.');
+          }
+
           const transactions: Transaction[] = await Promise.all(
             results.data.map(async (row: any) => {
-              const amount = parseFloat(row['Amount (EUR)'].replace(',', '.'));
-              const description = row['Name / Description'];
+              // Parse amount - handle different formats
+              let amountStr = row[amountColumn].toString().replace(/[^0-9.,-]/g, '');
+              const amount = parseFloat(amountStr.replace(',', '.'));
+
+              // Determine transaction type
+              let type: 'credit' | 'debit';
+              if (typeColumn) {
+                type = row[typeColumn].toLowerCase().includes('credit') ? 'credit' : 'debit';
+              } else {
+                type = amount >= 0 ? 'credit' : 'debit';
+              }
+
+              const description = row[descriptionColumn];
               const category = await categorizeThroughGPT(description);
               
               return {
                 id: uuidv4(),
-                date: parseDate(row['Date']),
+                date: parseDate(row[dateColumn]),
                 description: description,
                 amount: Math.abs(amount),
-                type: row['Debit/credit'].toLowerCase() === 'credit' ? 'credit' : 'debit',
+                type: type,
                 category: category,
-                account: row['Account'],
-                counterparty: row['Counterparty'] || null,
-                notes: row['Notifications'] || null,
+                account: accountColumn ? row[accountColumn] : 'Unknown',
+                counterparty: counterpartyColumn ? row[counterpartyColumn] : null,
+                notes: notesColumn ? row[notesColumn] : null,
               };
             })
           );
@@ -42,11 +82,32 @@ export const parseCSV = (file: File): Promise<Transaction[]> => {
 };
 
 function parseDate(dateStr: string): Date {
-  // Input format: "YYYYMMDD"
-  const year = parseInt(dateStr.substring(0, 4));
-  const month = parseInt(dateStr.substring(4, 6)) - 1; // Months are 0-based
-  const day = parseInt(dateStr.substring(6, 8));
-  return new Date(year, month, day);
+  // Try different date formats
+  const formats = [
+    // YYYYMMDD
+    /^(\d{4})(\d{2})(\d{2})$/,
+    // YYYY-MM-DD
+    /^(\d{4})-(\d{2})-(\d{2})$/,
+    // DD/MM/YYYY
+    /^(\d{2})\/(\d{2})\/(\d{4})$/,
+    // MM/DD/YYYY
+    /^(\d{2})\/(\d{2})\/(\d{4})$/
+  ];
+
+  for (const format of formats) {
+    const match = dateStr.match(format);
+    if (match) {
+      const [_, year, month, day] = match;
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+  }
+
+  // If no format matches, try parsing directly
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    throw new Error(`Invalid date format: ${dateStr}`);
+  }
+  return date;
 }
 
 const detectCategory = (description: string): TransactionCategory => {
