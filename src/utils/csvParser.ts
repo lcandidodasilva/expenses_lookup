@@ -110,18 +110,20 @@ function parseDate(dateStr: string): Date {
   return date;
 }
 
-const detectCategory = (description: string): TransactionCategory => {
+const detectCategory = (description: string): CategoryName => {
   description = description.toLowerCase();
   
   if (description.match(/salary|payroll|deposit/)) return 'Income';
   if (description.match(/rent|mortgage|housing/)) return 'Housing';
   if (description.match(/uber|lyft|gas|parking|transit/)) return 'Transportation';
-  if (description.match(/restaurant|grocery|food|meal/)) return 'Food';
+  if (description.match(/restaurant|grocery|food|meal/)) return 'Supermarket';
   if (description.match(/electricity|water|internet|phone/)) return 'Utilities';
   if (description.match(/insurance/)) return 'Insurance';
   if (description.match(/doctor|hospital|pharmacy|medical/)) return 'Healthcare';
   if (description.match(/netflix|spotify|movie|entertainment/)) return 'Entertainment';
   if (description.match(/amazon|walmart|target|shopping/)) return 'Shopping';
+  if (description.match(/delivery|takeout|takeaway/)) return 'Delivery';
+  if (description.match(/savings|spaarrekening/)) return 'Savings';
   
   return 'Other';
 }; 
