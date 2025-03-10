@@ -22,116 +22,66 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export async function initializeCategories() {
-  const defaultCategories = [
-    { name: 'Housing', description: 'Rent, mortgage, and housing-related expenses' },
-    { name: 'Transportation', description: 'Public transport, fuel, and vehicle expenses' },
-    { name: 'Savings', description: 'Savings and investments' },
-    { name: 'Utilities', description: 'Electricity, water, internet, and phone bills' },
-    { name: 'Insurance', description: 'Health, home, and other insurance' },
-    { name: 'Healthcare', description: 'Medical expenses and healthcare' },
-    { name: 'Entertainment', description: 'Movies, games, and leisure activities' },
-    { name: 'Shopping', description: 'General shopping and retail' },
-    { name: 'Income', description: 'Salary, freelance, and other income' },
-    { name: 'Supermarket', description: 'Grocery and supermarket purchases' },
-    { name: 'Delivery', description: 'Food delivery and takeaway' },
-    { name: 'Other', description: 'Uncategorized transactions' },
-  ];
+  const defaultPatterns = {
+    Housing: ['rent', 'mortgage', 'housing', 'huur', 'hypotheek', 'vve'],
+    Transportation: ['ns.nl', 'ov-chipkaart', 'ovpay', 'gvb', 'ret', 'htm', 'connexxion', 'arriva', 'uber', 'bolt.eu', 'shell', 'bp', 'esso'],
+    Savings: ['spaarrekening', 'savings', 'oranje spaarrekening'],
+    Utilities: ['vodafone', 'kpn', 't-mobile', 'tele2', 'ziggo', 'eneco', 'vattenfall', 'essent', 'greenchoice', 'water', 'gas'],
+    Insurance: ['insurance', 'verzekering', 'aegon', 'nationale nederlanden', 'centraal beheer'],
+    Healthcare: ['doctor', 'hospital', 'pharmacy', 'medical', 'apotheek', 'huisarts', 'tandarts', 'fysio', 'ziekenhuis'],
+    Entertainment: ['netflix', 'spotify', 'disney+', 'videoland', 'prime video', 'hbo', 'pathe', 'kinepolis', 'vue', 'bioscoop', 'cinema', 'theater', 'concert'],
+    Shopping: ['bol.com', 'coolblue', 'mediamarkt', 'amazon', 'zalando', 'h&m', 'zara', 'uniqlo', 'primark', 'action', 'hema', 'bijenkorf', 'ikea'],
+    Income: ['salary', 'payroll', 'deposit', 'salaris', 'loon', 'ebay marketplaces', 'connexie'],
+    Supermarket: ['albert heijn', 'jumbo', 'lidl', 'aldi', 'plus', 'dirk', 'ah to go', 'ah bezorgservice'],
+    Delivery: ['thuisbezorgd', 'deliveroo', 'uber eats', 'dominos', 'new york pizza', 'takeaway']
+  };
 
-  for (const category of defaultCategories) {
-    await prisma.category.upsert({
-      where: { name: category.name },
-      update: {},
-      create: category,
-    });
+  for (const [category, patterns] of Object.entries(defaultPatterns)) {
+    for (const pattern of patterns) {
+      await prisma.categoryPattern.upsert({
+        where: { pattern },
+        update: {},
+        create: {
+          pattern,
+          category: category as any,
+          confidence: 1.0,
+          usageCount: 0
+        }
+      });
+    }
   }
 }
 
 export async function saveTransactions(transactions: AppTransaction[]) {
-  const dbTransactions = transactions.map(async (t) => {
-    // Find or create category
-    const category = await prisma.category.findUnique({
-      where: { name: t.category || 'Other' },
-    });
-
-    return prisma.transaction.create({
-      data: {
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        type: t.type,
-        categoryId: category?.id,
-        account: t.account,
-        counterparty: t.counterparty || null,
-        notes: t.notes || null,
-        originalCategory: t.category || 'Other',
-      },
-    });
-  });
-
-  return Promise.all(dbTransactions);
+  return Promise.all(
+    transactions.map(t => 
+      prisma.transaction.create({
+        data: {
+          date: t.date,
+          description: t.description,
+          amount: t.amount,
+          type: t.type,
+          category: t.category,
+          account: t.account,
+          counterparty: t.counterparty || null,
+          notes: t.notes || null,
+        }
+      })
+    )
+  );
 }
 
 export async function updateTransactionCategory(
   transactionId: string,
   categoryName: string
 ) {
-  const category = await prisma.category.findUnique({
-    where: { name: categoryName },
-  });
-
-  if (!category) {
-    throw new Error(`Category ${categoryName} not found`);
-  }
-
-  const transaction = await prisma.transaction.update({
+  return prisma.transaction.update({
     where: { id: transactionId },
-    data: { categoryId: category.id },
-    include: { category: true },
+    data: { category: categoryName as any }
   });
-
-  // Update pattern confidence based on user correction
-  if (transaction.originalCategory && transaction.originalCategory !== categoryName) {
-    // Decrease confidence for the original pattern
-    await updatePatternConfidence(transaction.description, transaction.originalCategory, false);
-    // Increase confidence for the new pattern
-    await updatePatternConfidence(transaction.description, categoryName, true);
-  }
-
-  return transaction;
-}
-
-async function updatePatternConfidence(
-  description: string,
-  categoryName: string,
-  increase: boolean
-) {
-  const category = await prisma.category.findUnique({
-    where: { name: categoryName },
-    include: { patterns: true },
-  });
-
-  if (!category) return;
-
-  // Find matching patterns
-  const matchingPatterns = category.patterns.filter((p: PatternType) => 
-    description.toLowerCase().includes(p.pattern.toLowerCase())
-  );
-
-  for (const pattern of matchingPatterns) {
-    await prisma.pattern.update({
-      where: { id: pattern.id },
-      data: {
-        confidence: increase ? 
-          Math.min(pattern.confidence + 0.1, 1.0) : 
-          Math.max(pattern.confidence - 0.1, 0.1),
-        usageCount: pattern.usageCount + 1,
-      },
-    });
-  }
 }
 
 export async function getTransactionsByPeriod(start: Date | string, end: Date | string) {
-  // Ensure dates are Date objects
   const startDate = start instanceof Date ? start : new Date(start);
   const endDate = end instanceof Date ? end : new Date(end);
 
@@ -142,9 +92,6 @@ export async function getTransactionsByPeriod(start: Date | string, end: Date | 
         lte: endDate,
       },
     },
-    include: {
-      category: true,
-    },
     orderBy: {
       date: 'desc',
     },
@@ -152,27 +99,19 @@ export async function getTransactionsByPeriod(start: Date | string, end: Date | 
 }
 
 export async function getCategories() {
-  return prisma.category.findMany({
-    include: {
-      patterns: true,
-    },
+  return prisma.categoryPattern.findMany({
+    orderBy: { usageCount: 'desc' }
   });
 }
 
 export async function addPattern(categoryName: string, pattern: string) {
-  const category = await prisma.category.findUnique({
-    where: { name: categoryName },
-  });
-
-  if (!category) {
-    throw new Error(`Category ${categoryName} not found`);
-  }
-
-  return prisma.pattern.create({
+  return prisma.categoryPattern.create({
     data: {
       pattern,
-      categoryId: category.id,
-    },
+      category: categoryName as any,
+      confidence: 1.0,
+      usageCount: 0
+    }
   });
 }
 
