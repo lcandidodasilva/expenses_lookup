@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Transaction, DEFAULT_CATEGORIES, CATEGORY_COLORS } from '@/types/transaction';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -35,8 +35,10 @@ export default function TransactionList({ transactions, onCategoryUpdate }: Tran
           if (typeof fieldValue === 'string') {
             return fieldValue.toLowerCase().includes(value.toLowerCase());
           }
-          if (fieldValue instanceof Date) {
-            return format(fieldValue, 'yyyy-MM-dd').includes(value);
+          if (key === 'date') {
+            // Format the transaction date to match the input format (yyyy-MM-dd)
+            const transactionDate = format(new Date(transaction.date), 'yyyy-MM-dd');
+            return transactionDate.includes(value);
           }
           if (typeof fieldValue === 'number') {
             return fieldValue.toString().includes(value);
