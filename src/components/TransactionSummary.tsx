@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Transaction, CategoryName } from '@/types/transaction';
+import { Transaction, CategoryName, CATEGORY_COLORS } from '@/types/transaction';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -26,112 +26,90 @@ interface TransactionSummaryProps {
   transactions: Transaction[];
 }
 
-interface CategoryTotal {
-  name: CategoryName;
-  amount: number;
-}
-
 export default function TransactionSummary({ transactions }: TransactionSummaryProps) {
-  const totalIncome = transactions
-    .filter((t) => t.type === 'credit')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const [summary, setSummary] = useState({
+    totalIncome: 0,
+    totalExpenses: 0,
+    categoryTotals: {} as Record<CategoryName, number>,
+  });
 
-  const totalExpenses = Math.abs(
-    transactions
-      .filter((t) => t.type === 'debit')
-      .reduce((sum, t) => sum + t.amount, 0)
-  );
+  useEffect(() => {
+    const calculateSummary = () => {
+      const totals = transactions.reduce(
+        (acc, transaction) => {
+          if (transaction.type === 'credit') {
+            acc.totalIncome += transaction.amount;
+          } else {
+            acc.totalExpenses += transaction.amount;
+          }
+          acc.categoryTotals[transaction.category] = (acc.categoryTotals[transaction.category] || 0) + transaction.amount;
+          return acc;
+        },
+        { totalIncome: 0, totalExpenses: 0, categoryTotals: {} as Record<CategoryName, number> }
+      );
 
-  const balance = totalIncome - totalExpenses;
+      setSummary(totals);
+    };
 
-  const categoryTotals = transactions.reduce((acc, transaction) => {
-    if (transaction.type === 'debit') {
-      acc[transaction.category] = (acc[transaction.category] || 0) + Math.abs(transaction.amount);
-    }
-    return acc;
-  }, {} as Record<CategoryName, number>);
+    calculateSummary();
+  }, [transactions]);
 
-  const sortedCategories = Object.entries(categoryTotals)
-    .map(([name, amount]) => ({ name: name as CategoryName, amount }))
-    .sort((a, b) => b.amount - a.amount);
-
-  const pieChartData = {
-    labels: sortedCategories.map(c => c.name),
+  const pieData = {
+    labels: Object.keys(summary.categoryTotals),
     datasets: [
       {
-        data: sortedCategories.map(c => c.amount),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-        ],
+        data: Object.values(summary.categoryTotals),
+        backgroundColor: Object.keys(summary.categoryTotals).map(
+          (category) => CATEGORY_COLORS[category as CategoryName]
+        ),
+        borderWidth: 1,
       },
     ],
   };
 
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'right' as const,
+      },
+    },
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4">Financial Summary</h2>
         <div className="space-y-4">
-          <div>
-            <p className="text-gray-600">Total Income</p>
-            <p className="text-2xl font-bold text-green-600">
-              ${totalIncome.toFixed(2)}
-            </p>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Total Income:</span>
+            <span className="text-green-600 font-semibold">
+              €{summary.totalIncome.toFixed(2)}
+            </span>
           </div>
-          <div>
-            <p className="text-gray-600">Total Expenses</p>
-            <p className="text-2xl font-bold text-red-600">
-              ${totalExpenses.toFixed(2)}
-            </p>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Total Expenses:</span>
+            <span className="text-red-600 font-semibold">
+              €{summary.totalExpenses.toFixed(2)}
+            </span>
           </div>
-          <div>
-            <p className="text-gray-600">Balance</p>
-            <p className={`text-2xl font-bold ${
-              balance >= 0 ? 'text-green-600' : 'text-red-600'
+          <div className="flex justify-between items-center pt-4 border-t">
+            <span className="text-gray-600 font-semibold">Net Balance:</span>
+            <span className={`font-semibold ${
+              summary.totalIncome - summary.totalExpenses >= 0
+                ? 'text-green-600'
+                : 'text-red-600'
             }`}>
-              ${balance.toFixed(2)}
-            </p>
+              €{(summary.totalIncome - summary.totalExpenses).toFixed(2)}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Expense Categories</h2>
-        {sortedCategories.length > 0 ? (
-          <div className="h-64">
-            <Pie data={pieChartData} options={{ maintainAspectRatio: false }} />
-          </div>
-        ) : (
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            No expense data available for this period
-          </div>
-        )}
-      </div>
-
-      {/* Category List */}
-      <div className="md:col-span-2 bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Category Breakdown</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedCategories.map((category) => (
-            <div key={category.name} className="p-4 border rounded-lg">
-              <h3 className="font-medium text-gray-700">{category.name}</h3>
-              <p className="text-xl font-bold text-red-600">${category.amount.toFixed(2)}</p>
-              <p className="text-sm text-gray-500">
-                {((category.amount / totalExpenses) * 100).toFixed(1)}% of total expenses
-              </p>
-            </div>
-          ))}
+        <h2 className="text-xl font-semibold mb-4">Expenses by Category</h2>
+        <div className="h-64">
+          <Pie data={pieData} options={pieOptions} />
         </div>
       </div>
     </div>

@@ -7,27 +7,42 @@ import { MonthlyPeriod, generateMonthlyPeriods, filterTransactionsByPeriod } fro
 import TransactionList from '@/components/TransactionList';
 import TransactionSummary from '@/components/TransactionSummary';
 import FileUpload from '@/components/FileUpload';
+import { format } from 'date-fns';
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [periods, setPeriods] = useState<MonthlyPeriod[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<MonthlyPeriod | null>(null);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Initialize categories when the app loads
-    fetch('/api/categories', { method: 'PUT' })
-      .catch(error => console.error('Error initializing categories:', error));
+    // Load initial data
+    const loadInitialData = async () => {
+      try {
+        const response = await fetch('/api/transactions');
+        if (!response.ok) {
+          throw new Error('Failed to fetch transactions');
+        }
+        const data = await response.json();
+        setTransactions(data.transactions);
+        setLastUpdated(data.lastUpdated ? new Date(data.lastUpdated) : null);
+        
+        if (data.transactions.length > 0) {
+          const newPeriods = generateMonthlyPeriods(data.transactions);
+          setPeriods(newPeriods);
+          setSelectedPeriod(newPeriods[newPeriods.length - 1]);
+        }
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
   }, []);
-
-  useEffect(() => {
-    if (transactions.length > 0) {
-      const newPeriods = generateMonthlyPeriods(transactions);
-      setPeriods(newPeriods);
-      setSelectedPeriod(newPeriods[newPeriods.length - 1]); // Select the most recent period
-    }
-  }, [transactions]);
 
   useEffect(() => {
     if (selectedPeriod && transactions.length > 0) {
@@ -52,8 +67,15 @@ export default function Home() {
         throw new Error('Failed to save transactions');
       }
 
-      const savedTransactions = await response.json();
-      setTransactions(savedTransactions);
+      const data = await response.json();
+      setTransactions(data.transactions);
+      setLastUpdated(data.lastUpdated ? new Date(data.lastUpdated) : null);
+      
+      if (data.transactions.length > 0) {
+        const newPeriods = generateMonthlyPeriods(data.transactions);
+        setPeriods(newPeriods);
+        setSelectedPeriod(newPeriods[newPeriods.length - 1]);
+      }
     } catch (error) {
       console.error('Error processing transactions:', error);
       alert('Error processing transactions. Please check the format and try again.');
@@ -77,8 +99,10 @@ export default function Home() {
       // Refresh transactions for the current period
       if (selectedPeriod) {
         const response = await fetch(`/api/transactions?start=${selectedPeriod.start.toISOString()}&end=${selectedPeriod.end.toISOString()}`);
-        const updatedTransactions = await response.json();
-        setFilteredTransactions(updatedTransactions);
+        const data = await response.json();
+        setTransactions(data.transactions);
+        setLastUpdated(data.lastUpdated ? new Date(data.lastUpdated) : null);
+        setFilteredTransactions(data.transactions);
       }
     } catch (error) {
       console.error('Error updating category:', error);
@@ -89,7 +113,14 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">Personal Finance Tracker</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">Personal Finance Tracker</h1>
+          {lastUpdated && (
+            <p className="text-sm text-gray-500">
+              Last updated: {format(lastUpdated, 'MMM dd, yyyy HH:mm')}
+            </p>
+          )}
+        </div>
         
         <div className="mb-8">
           <FileUpload onFileUpload={handleFileUpload} />
@@ -97,7 +128,7 @@ export default function Home() {
 
         {isLoading && (
           <div className="text-center text-gray-500 my-8">
-            <p className="text-xl">Processing transactions...</p>
+            <p className="text-xl">Loading transactions...</p>
           </div>
         )}
 

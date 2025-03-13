@@ -34,22 +34,43 @@ export async function GET(request: Request) {
     const start = searchParams.get('start');
     const end = searchParams.get('end');
 
-    let whereClause = {};
-    if (start && end) {
-      whereClause = {
-        date: {
-          gte: new Date(start),
-          lte: new Date(end),
-        },
-      };
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where: whereClause,
-      orderBy: { date: 'desc' },
+    // Get the last updated date
+    const lastUpdated = await prisma.transaction.findFirst({
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      select: {
+        updatedAt: true
+      }
     });
 
-    return NextResponse.json(transactions);
+    // Get transactions for the specified period if dates are provided
+    let transactions = [];
+    if (start && end) {
+      transactions = await prisma.transaction.findMany({
+        where: {
+          date: {
+            gte: new Date(start),
+            lte: new Date(end)
+          }
+        },
+        orderBy: {
+          date: 'desc'
+        }
+      });
+    } else {
+      // If no dates provided, get all transactions
+      transactions = await prisma.transaction.findMany({
+        orderBy: {
+          date: 'desc'
+        }
+      });
+    }
+
+    return NextResponse.json({
+      transactions,
+      lastUpdated: lastUpdated?.updatedAt || null
+    });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     return NextResponse.json(
