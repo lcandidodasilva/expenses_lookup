@@ -4,10 +4,14 @@ import { useState, useEffect } from 'react';
 import { Transaction } from '@/types/transaction';
 import { parseCSV } from '@/utils/csvParser';
 import { MonthlyPeriod, generateMonthlyPeriods, filterTransactionsByPeriod } from '@/utils/dateUtils';
-import TransactionList from '@/components/TransactionList';
-import TransactionSummary from '@/components/TransactionSummary';
-import FileUpload from '@/components/FileUpload';
-import { format } from 'date-fns';
+
+// Import modular components
+import Header from '@/components/Header';
+import UploadSection from '@/components/UploadSection';
+import PeriodSelector from '@/components/PeriodSelector';
+import TransactionDashboard from '@/components/TransactionDashboard';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -76,6 +80,14 @@ export default function Home() {
         setPeriods(newPeriods);
         setSelectedPeriod(newPeriods[newPeriods.length - 1]);
       }
+
+      // Show notification about duplicates
+      const duplicatesCount = parsedTransactions.length - data.newTransactionsCount;
+      if (duplicatesCount > 0) {
+        alert(`${data.newTransactionsCount} new transactions imported. ${duplicatesCount} duplicate transactions were skipped.`);
+      } else {
+        alert(`${data.newTransactionsCount} new transactions imported successfully.`);
+      }
     } catch (error) {
       console.error('Error processing transactions:', error);
       alert('Error processing transactions. Please check the format and try again.');
@@ -110,70 +122,120 @@ export default function Home() {
     }
   };
 
+  const handleClearTransactions = async () => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      "Are you sure you want to delete ALL transactions? This action cannot be undone."
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch('/api/transactions/clear', {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to clear transactions');
+      }
+      
+      const result = await response.json();
+      alert(`Successfully cleared ${result.deletedCount} transactions.`);
+      
+      // Reset state
+      setTransactions([]);
+      setFilteredTransactions([]);
+      setPeriods([]);
+      setSelectedPeriod(null);
+      setLastUpdated(null);
+    } catch (error) {
+      console.error('Error clearing transactions:', error);
+      alert('Failed to clear transactions. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRecategorize = async (month?: string) => {
+    try {
+      setIsLoading(true);
+      
+      const url = month 
+        ? `/api/transactions/recategorize?month=${month}`
+        : '/api/transactions/recategorize';
+      
+      const response = await fetch(url, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to recategorize transactions');
+      }
+      
+      const result = await response.json();
+      
+      // Refresh transactions
+      const refreshResponse = await fetch('/api/transactions');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setTransactions(data.transactions);
+        setLastUpdated(data.lastUpdated ? new Date(data.lastUpdated) : null);
+        
+        if (data.transactions.length > 0 && selectedPeriod) {
+          const filtered = filterTransactionsByPeriod(data.transactions, selectedPeriod);
+          setFilteredTransactions(filtered);
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error recategorizing transactions:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePeriodChange = (period: MonthlyPeriod) => {
+    setSelectedPeriod(period);
+  };
+
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Personal Finance Tracker</h1>
-          {lastUpdated && (
-            <p className="text-sm text-gray-500">
-              Last updated: {format(lastUpdated, 'MMM dd, yyyy HH:mm')}
-            </p>
-          )}
-        </div>
+        <Header lastUpdated={lastUpdated} />
         
-        <div className="mb-8">
-          <FileUpload onFileUpload={handleFileUpload} />
-        </div>
+        <UploadSection 
+          onFileUpload={handleFileUpload}
+          onClearTransactions={handleClearTransactions}
+          onRecategorize={handleRecategorize}
+          hasTransactions={transactions.length > 0}
+          isLoading={isLoading}
+          transactions={transactions}
+        />
 
-        {isLoading && (
-          <div className="text-center text-gray-500 my-8">
-            <p className="text-xl">Loading transactions...</p>
-          </div>
-        )}
+        {isLoading && <LoadingState />}
 
         {!isLoading && transactions.length > 0 && (
           <>
-            <div className="mb-8">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Period
-              </label>
-              <select
-                className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                value={periods.findIndex(p => p === selectedPeriod)}
-                onChange={(e) => setSelectedPeriod(periods[parseInt(e.target.value)])}
-              >
-                {periods.map((period, index) => (
-                  <option key={period.label} value={index}>
-                    {period.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <PeriodSelector 
+              periods={periods}
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={handlePeriodChange}
+            />
 
             {selectedPeriod && (
-              <>
-                <div className="mb-8">
-                  <TransactionSummary transactions={filteredTransactions} />
-                </div>
-
-                <div>
-                  <TransactionList 
-                    transactions={filteredTransactions}
-                    onCategoryUpdate={handleCategoryUpdate}
-                  />
-                </div>
-              </>
+              <TransactionDashboard 
+                transactions={filteredTransactions}
+                onCategoryUpdate={handleCategoryUpdate}
+              />
             )}
           </>
         )}
 
-        {!isLoading && transactions.length === 0 && (
-          <div className="text-center text-gray-500 mt-16">
-            <p className="text-xl">Upload a CSV file to get started</p>
-            <p className="mt-2">Your file should contain columns for date, description, and amount</p>
-          </div>
-        )}
+        {!isLoading && transactions.length === 0 && <EmptyState />}
       </div>
     </main>
   );

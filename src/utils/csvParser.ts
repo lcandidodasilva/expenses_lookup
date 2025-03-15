@@ -116,14 +116,16 @@ const detectCategory = (description: string): CategoryName => {
   if (description.match(/salary|payroll|deposit/)) return 'Income';
   if (description.match(/rent|mortgage|housing/)) return 'Housing';
   if (description.match(/uber|lyft|gas|parking|transit/)) return 'Transportation';
-  if (description.match(/restaurant|grocery|food|meal/)) return 'Supermarket';
+  if (description.match(/grocery|food|meal|albert heijn|jumbo|lidl|aldi|plus|dirk/)) return 'Supermarket';
   if (description.match(/electricity|water|internet|phone/)) return 'Utilities';
   if (description.match(/insurance/)) return 'Insurance';
   if (description.match(/doctor|hospital|pharmacy|medical/)) return 'Healthcare';
   if (description.match(/netflix|spotify|movie|entertainment/)) return 'Entertainment';
   if (description.match(/amazon|walmart|target|shopping/)) return 'Shopping';
-  if (description.match(/delivery|takeout|takeaway/)) return 'Delivery';
+  if (description.match(/delivery|takeout|takeaway|thuisbezorgd|deliveroo|uber eats/)) return 'Delivery';
   if (description.match(/savings|spaarrekening/)) return 'Savings';
+  if (description.match(/restaurant|dining|cafe|bar|eetcafe|iens|dinner|lunch|bistro|brasserie/)) return 'Restaurants';
+  if (description.match(/ikea|praxis|gamma|action|karwei|hornbach|home depot|furniture|lamp|decoration|home improvement/)) return 'HouseImprovements';
   
   return 'Other';
 }; 

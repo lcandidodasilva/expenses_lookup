@@ -30,6 +30,9 @@ enum CategoryName {
   Income
   Supermarket
   Delivery
+  Restaurants
+  HouseImprovements
+  Education
   Other
 }
 

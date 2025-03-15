@@ -1,24 +1,38 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { Transaction } from '@/types/transaction';
+import { saveTransactions } from '@/utils/db';
 
 export async function POST(request: Request) {
   try {
     const transactions: Transaction[] = await request.json();
     
-    // Save all transactions
-    const savedTransactions = await Promise.all(
-      transactions.map(async (transaction) => {
-        return prisma.transaction.create({
-          data: {
-            ...transaction,
-            date: new Date(transaction.date), // Ensure date is properly converted
-          },
-        });
-      })
-    );
+    // Use the improved saveTransactions function that checks for duplicates
+    const savedTransactions = await saveTransactions(transactions);
+    
+    // Get the last updated date
+    const lastUpdated = await prisma.transaction.findFirst({
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      select: {
+        updatedAt: true
+      }
+    });
+    
+    // Get all transactions for the response
+    const allTransactions = await prisma.transaction.findMany({
+      orderBy: {
+        date: 'desc'
+      }
+    });
 
-    return NextResponse.json(savedTransactions);
+    return NextResponse.json({
+      transactions: allTransactions,
+      lastUpdated: lastUpdated?.updatedAt || null,
+      newTransactionsCount: savedTransactions.length,
+      totalTransactionsCount: allTransactions.length
+    });
   } catch (error) {
     console.error('Error saving transactions:', error);
     return NextResponse.json(

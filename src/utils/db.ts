@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma, CategoryName } from '@prisma/client';
 import { Transaction as AppTransaction } from '@/types/transaction';
 
 interface PatternType {
@@ -24,7 +24,7 @@ if (process.env.NODE_ENV !== 'production') {
 export async function initializeCategories() {
   const defaultPatterns = {
     Housing: ['rent', 'mortgage', 'housing', 'huur', 'hypotheek', 'vve'],
-    Transportation: ['ns.nl', 'ov-chipkaart', 'ovpay', 'gvb', 'ret', 'htm', 'connexxion', 'arriva', 'uber', 'bolt.eu', 'shell', 'bp', 'esso'],
+    Transportation: ['ns.nl', 'ov-chipkaart', 'ovpay', 'gvb', 'ret', 'htm', 'connexxion', 'arriva', 'uber', 'bolt.eu', 'shell', 'bp', 'esso', 'rai parking', 'rai parkeren', 'q-park', 'p+r'],
     Savings: ['spaarrekening', 'savings', 'oranje spaarrekening'],
     Utilities: ['vodafone', 'kpn', 't-mobile', 'tele2', 'ziggo', 'eneco', 'vattenfall', 'essent', 'greenchoice', 'water', 'gas'],
     Insurance: ['insurance', 'verzekering', 'aegon', 'nationale nederlanden', 'centraal beheer'],
@@ -33,7 +33,11 @@ export async function initializeCategories() {
     Shopping: ['bol.com', 'coolblue', 'mediamarkt', 'amazon', 'zalando', 'h&m', 'zara', 'uniqlo', 'primark', 'action', 'hema', 'bijenkorf', 'ikea'],
     Income: ['salary', 'payroll', 'deposit', 'salaris', 'loon', 'ebay marketplaces', 'connexie'],
     Supermarket: ['albert heijn', 'jumbo', 'lidl', 'aldi', 'plus', 'dirk', 'ah to go', 'ah bezorgservice'],
-    Delivery: ['thuisbezorgd', 'deliveroo', 'uber eats', 'dominos', 'new york pizza', 'takeaway']
+    Delivery: ['thuisbezorgd', 'deliveroo', 'uber eats', 'dominos', 'dp', 'new york pizza', 'takeaway'],
+    Restaurants: ['restaurant', 'dining', 'cafe', 'bar', 'eetcafe', 'iens', 'dinner', 'lunch', 'bistro', 'brasserie', 'mcdonalds', 'burger king', 'kfc'],
+    HouseImprovements: ['ikea', 'praxis', 'gamma', 'action', 'karwei', 'hornbach', 'home depot', 'furniture', 'lamp', 'decoration', 'home improvement'],
+    Education: ['school', 'university', 'college', 'course', 'training', 'workshop', 'aulas', 'les', 'cursus', 'mark de jong', 'holandes', 'dutch', 'language', 'taalcursus'],
+    Other: []
   };
 
   for (const [category, patterns] of Object.entries(defaultPatterns)) {
@@ -43,7 +47,7 @@ export async function initializeCategories() {
         update: {},
         create: {
           pattern,
-          category: category as any,
+          category: category as CategoryName,
           confidence: 1.0,
           usageCount: 0
         }
@@ -53,22 +57,46 @@ export async function initializeCategories() {
 }
 
 export async function saveTransactions(transactions: AppTransaction[]) {
-  return Promise.all(
-    transactions.map(t => 
-      prisma.transaction.create({
+  const results = [];
+  
+  for (const t of transactions) {
+    // Check if a similar transaction already exists
+    // We consider a transaction duplicate if it has the same date, description, amount, and type
+    const existingTransaction = await prisma.transaction.findFirst({
+      where: {
+        date: {
+          // Match the date ignoring time component
+          gte: new Date(new Date(t.date).setHours(0, 0, 0, 0)),
+          lt: new Date(new Date(t.date).setHours(23, 59, 59, 999)),
+        },
+        description: t.description,
+        amount: t.amount,
+        type: t.type,
+      },
+    });
+
+    if (!existingTransaction) {
+      // Only create if no duplicate exists
+      const newTransaction = await prisma.transaction.create({
         data: {
           date: t.date,
           description: t.description,
           amount: t.amount,
           type: t.type,
-          category: t.category,
+          category: t.category as unknown as CategoryName,
           account: t.account,
           counterparty: t.counterparty || null,
           notes: t.notes || null,
         }
-      })
-    )
-  );
+      });
+      results.push(newTransaction);
+    } else {
+      // Return the existing transaction
+      results.push(existingTransaction);
+    }
+  }
+  
+  return results;
 }
 
 export async function updateTransactionCategory(
@@ -77,7 +105,7 @@ export async function updateTransactionCategory(
 ) {
   return prisma.transaction.update({
     where: { id: transactionId },
-    data: { category: categoryName as any }
+    data: { category: categoryName as unknown as CategoryName }
   });
 }
 
@@ -108,7 +136,7 @@ export async function addPattern(categoryName: string, pattern: string) {
   return prisma.categoryPattern.create({
     data: {
       pattern,
-      category: categoryName as any,
+      category: categoryName as unknown as CategoryName,
       confidence: 1.0,
       usageCount: 0
     }

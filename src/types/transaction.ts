@@ -12,6 +12,9 @@ export type CategoryName =
   | 'Shopping'
   | 'Delivery'
   | 'Supermarket'
+  | 'Restaurants'
+  | 'HouseImprovements'
+  | 'Education'
   | 'Other';
 
 export const DEFAULT_CATEGORIES: CategoryName[] = [
@@ -26,6 +29,9 @@ export const DEFAULT_CATEGORIES: CategoryName[] = [
   'Shopping',
   'Delivery',
   'Supermarket',
+  'Restaurants',
+  'HouseImprovements',
+  'Education',
   'Other'
 ];
 
@@ -41,6 +47,9 @@ export const CATEGORY_COLORS: Record<CategoryName, string> = {
   'Shopping': '#795548',    // Brown
   'Delivery': '#607D8B',    // Blue Grey
   'Supermarket': '#8BC34A', // Light Green
+  'Restaurants': '#FFC107', // Amber
+  'HouseImprovements': '#3F51B5', // Indigo
+  'Education': '#009688',   // Teal
   'Other': '#9E9E9E'        // Grey
 };
 

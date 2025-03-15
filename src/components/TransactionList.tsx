@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Transaction, DEFAULT_CATEGORIES, CATEGORY_COLORS } from '@/types/transaction';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, parse } from 'date-fns';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -36,9 +36,23 @@ export default function TransactionList({ transactions, onCategoryUpdate }: Tran
             return fieldValue.toLowerCase().includes(value.toLowerCase());
           }
           if (key === 'date') {
-            // Format the transaction date to match the input format (yyyy-MM-dd)
-            const transactionDate = format(new Date(transaction.date), 'yyyy-MM-dd');
-            return transactionDate.includes(value);
+            // Handle date filtering with dd/MM/yyyy format
+            try {
+              // Parse the filter date from yyyy-MM-dd (HTML input format) to a Date object
+              const filterDate = new Date(value);
+              // Parse the transaction date to a Date object
+              const transactionDate = new Date(transaction.date);
+              
+              // Format both dates to dd/MM/yyyy for string comparison
+              const filterDateFormatted = format(filterDate, 'dd/MM/yyyy');
+              const transactionDateFormatted = format(transactionDate, 'dd/MM/yyyy');
+              
+              // Compare the formatted dates
+              return filterDateFormatted === transactionDateFormatted;
+            } catch (e) {
+              console.error('Error parsing date:', e);
+              return false;
+            }
           }
           if (typeof fieldValue === 'number') {
             return fieldValue.toString().includes(value);
@@ -177,7 +191,7 @@ export default function TransactionList({ transactions, onCategoryUpdate }: Tran
             {filteredTransactions.map((transaction) => (
               <tr key={transaction.id} className={loading ? 'opacity-50' : ''}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {format(new Date(transaction.date), 'MMM dd, yyyy')}
+                  {format(new Date(transaction.date), 'dd/MM/yyyy')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {transaction.description}
