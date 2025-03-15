@@ -94,15 +94,15 @@ async function callGptApi(description: string, patternExamples: string): Promise
         throw new Error('Invalid GPT response format');
       }
       
-      const category = data.choices[0].message.content.trim() as CategoryName;
+      const categoryText = data.choices[0].message.content.trim();
       
       // Validate that the category is one of the allowed values
-      if (!DEFAULT_CATEGORIES.includes(category)) {
-        console.warn(`Invalid category from GPT: ${category}. Using fallback.`);
+      if (!DEFAULT_CATEGORIES.includes(categoryText as any)) {
+        console.warn(`Invalid category from GPT: ${categoryText}. Using fallback.`);
         return null;
       }
       
-      return category;
+      return categoryText as CategoryName;
     } catch (error) {
       console.warn(`GPT API call failed (attempt ${retries + 1}/${MAX_RETRIES + 1}):`, error);
       retries++;
@@ -162,19 +162,19 @@ function fallbackCategorization(description: string): CategoryName {
   
   // Check for specific known merchants first
   if (lowerDesc.includes('dp') || lowerDesc.includes('dominos') || lowerDesc.includes('domino\'s')) {
-    return 'Delivery';
+    return 'Delivery' as CategoryName;
   }
   
   if (lowerDesc.includes('rai') && (lowerDesc.includes('parking') || lowerDesc.includes('parkeren'))) {
-    return 'Transportation';
+    return 'Transportation' as CategoryName;
   }
   
   if (lowerDesc.includes('mark de jong') || lowerDesc.includes('aulas de holandes')) {
-    return 'Education';
+    return 'Education' as CategoryName;
   }
   
   // Define patterns for each category
-  const patterns = {
+  const patterns: Record<string, string[]> = {
     Housing: ['rent', 'mortgage', 'housing', 'huur', 'hypotheek', 'vve'],
     Transportation: ['ns.nl', 'ov-chipkaart', 'ovpay', 'gvb', 'ret', 'htm', 'connexxion', 'arriva', 'uber', 'bolt.eu', 'shell', 'bp', 'esso', 'parking', 'parkeren', 'q-park', 'p+r'],
     Savings: ['spaarrekening', 'savings', 'oranje spaarrekening'],
@@ -198,5 +198,5 @@ function fallbackCategorization(description: string): CategoryName {
     }
   }
 
-  return 'Other';
+  return 'Other' as CategoryName;
 } 

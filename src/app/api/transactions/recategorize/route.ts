@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { categorizeThroughGPT } from '@/utils/gptCategorizer';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { CategoryName } from '@prisma/client';
 
 // Process transactions in batches to avoid overwhelming the API
 const BATCH_SIZE = 5;
@@ -21,7 +22,7 @@ async function processBatch(transactions: any[], startIdx: number, batchSize: nu
         if (newCategory !== 'Other') {
           await prisma.transaction.update({
             where: { id: transaction.id },
-            data: { category: newCategory as any }
+            data: { category: newCategory as unknown as CategoryName }
           });
           
           return {

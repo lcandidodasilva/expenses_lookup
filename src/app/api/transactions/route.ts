@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { Transaction } from '@/types/transaction';
 import { saveTransactions } from '@/utils/db';
+import { CategoryName } from '@prisma/client';
 
 export async function POST(request: Request) {
   try {
@@ -100,14 +101,14 @@ export async function PUT(request: Request) {
 
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
-      data: { category: categoryName },
+      data: { category: categoryName as unknown as CategoryName },
     });
 
     // Update pattern usage count
     const pattern = await prisma.categoryPattern.findFirst({
       where: {
         pattern: { contains: updatedTransaction.description.toLowerCase() },
-        category: categoryName,
+        category: categoryName as unknown as CategoryName,
       },
     });
 
