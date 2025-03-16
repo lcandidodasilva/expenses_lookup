@@ -15,21 +15,35 @@ async function processBatch(transactions: any[], startIdx: number, batchSize: nu
   const results = await Promise.all(
     batch.map(async (transaction) => {
       try {
+        console.log(`Processing transaction: ${transaction.id} - ${transaction.description}`);
+        
         // Use GPT to categorize the transaction
         const newCategory = await categorizeThroughGPT(transaction.description);
         
+        console.log(`Categorized "${transaction.description}" as: ${newCategory}`);
+        
         // Only update if the category changed
         if (newCategory !== 'Other') {
-          await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: { category: newCategory as unknown as CategoryName }
-          });
-          
-          return {
-            id: transaction.id,
-            oldCategory: 'Other',
-            newCategory
-          };
+          try {
+            await prisma.transaction.update({
+              where: { id: transaction.id },
+              data: { category: newCategory as unknown as CategoryName }
+            });
+            
+            console.log(`Updated transaction ${transaction.id} to category: ${newCategory}`);
+            
+            return {
+              id: transaction.id,
+              oldCategory: 'Other',
+              newCategory
+            };
+          } catch (updateError: any) {
+            console.error(`Error updating transaction ${transaction.id}:`, updateError);
+            console.error(`Failed to update to category: ${newCategory}, error: ${updateError.message || 'Unknown error'}`);
+            return null;
+          }
+        } else {
+          console.log(`Keeping transaction ${transaction.id} as 'Other'`);
         }
       } catch (error) {
         console.error(`Error processing transaction ${transaction.id}:`, error);

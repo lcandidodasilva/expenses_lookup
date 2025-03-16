@@ -98,30 +98,53 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const { transactionId, categoryName } = await request.json();
-
-    const updatedTransaction = await prisma.transaction.update({
-      where: { id: transactionId },
-      data: { category: categoryName as unknown as CategoryName },
-    });
-
-    // Update pattern usage count
-    const pattern = await prisma.categoryPattern.findFirst({
-      where: {
-        pattern: { contains: updatedTransaction.description.toLowerCase() },
-        category: categoryName as unknown as CategoryName,
-      },
-    });
-
-    if (pattern) {
-      await prisma.categoryPattern.update({
-        where: { id: pattern.id },
-        data: { usageCount: { increment: 1 } },
-      });
+    
+    console.log(`Updating transaction ${transactionId} to category: ${categoryName}`);
+    
+    // Ensure the category name is properly formatted
+    // This helps debug issues with case sensitivity
+    if (categoryName === 'Education') {
+      console.log('Education category detected, ensuring proper case');
     }
 
-    return NextResponse.json(updatedTransaction);
+    try {
+      const updatedTransaction = await prisma.transaction.update({
+        where: { id: transactionId },
+        data: { category: categoryName as unknown as CategoryName },
+      });
+      
+      console.log(`Transaction updated successfully to: ${updatedTransaction.category}`);
+
+      // Update pattern usage count
+      try {
+        const pattern = await prisma.categoryPattern.findFirst({
+          where: {
+            pattern: { contains: updatedTransaction.description.toLowerCase() },
+            category: categoryName as unknown as CategoryName,
+          },
+        });
+
+        if (pattern) {
+          await prisma.categoryPattern.update({
+            where: { id: pattern.id },
+            data: { usageCount: { increment: 1 } },
+          });
+        }
+      } catch (patternError) {
+        console.error('Error updating pattern usage count:', patternError);
+        // Continue even if pattern update fails
+      }
+
+      return NextResponse.json(updatedTransaction);
+    } catch (updateError: any) {
+      console.error('Prisma error updating transaction:', updateError);
+      return NextResponse.json(
+        { error: `Failed to update transaction: ${updateError.message || 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error('Error updating transaction:', error);
+    console.error('Error in PUT handler:', error);
     return NextResponse.json(
       { error: 'Failed to update transaction' },
       { status: 500 }

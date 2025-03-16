@@ -37,6 +37,9 @@ export async function initializeCategories() {
     Restaurants: ['restaurant', 'dining', 'cafe', 'bar', 'eetcafe', 'iens', 'dinner', 'lunch', 'bistro', 'brasserie', 'mcdonalds', 'burger king', 'kfc'],
     HouseImprovements: ['ikea', 'praxis', 'gamma', 'action', 'karwei', 'hornbach', 'home depot', 'furniture', 'lamp', 'decoration', 'home improvement'],
     Education: ['school', 'university', 'college', 'course', 'training', 'workshop', 'aulas', 'les', 'cursus', 'mark de jong', 'holandes', 'dutch', 'language', 'taalcursus'],
+    Clothes: ['h&m', 'zara', 'uniqlo', 'primark', 'c&a', 'we fashion', 'only', 'vero moda', 'jack & jones', 'nike', 'adidas', 'puma', 'clothing', 'kleding', 'fashion'],
+    Pharmacy: ['apotheek', 'pharmacy', 'etos', 'kruidvat', 'da', 'medicine', 'medicijn', 'drug', 'prescription', 'recept'],
+    Taxes: ['belastingdienst', 'tax', 'belasting', 'gemeente', 'municipality', 'waterschapsbelasting', 'property tax', 'income tax', 'inkomstenbelasting', 'omzetbelasting', 'btw', 'vat'],
     Other: []
   };
 
