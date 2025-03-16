@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { categorizeThroughGPT } from '@/utils/gptCategorizer';
+import { categorizeWithGemini } from '@/utils/geminiCategorizer';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { CategoryName } from '@prisma/client';
 
@@ -17,8 +17,8 @@ async function processBatch(transactions: any[], startIdx: number, batchSize: nu
       try {
         console.log(`Processing transaction: ${transaction.id} - ${transaction.description}`);
         
-        // Use GPT to categorize the transaction
-        const newCategory = await categorizeThroughGPT(transaction.description);
+        // Use Gemini to categorize the transaction
+        const newCategory = await categorizeWithGemini(transaction.description);
         
         console.log(`Categorized "${transaction.description}" as: ${newCategory}`);
         
@@ -45,11 +45,12 @@ async function processBatch(transactions: any[], startIdx: number, batchSize: nu
         } else {
           console.log(`Keeping transaction ${transaction.id} as 'Other'`);
         }
-      } catch (error) {
+        
+        return null;
+      } catch (error: any) {
         console.error(`Error processing transaction ${transaction.id}:`, error);
+        return null;
       }
-      
-      return null;
     })
   );
   

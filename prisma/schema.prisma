@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("POSTGRES_PRISMA_URL")
+  url      = env("DATABASE_URL")
 }
 
 enum TransactionType {
@@ -18,24 +18,86 @@ enum TransactionType {
   debit
 }
 
-enum CategoryName {
+enum MainCategory {
   Housing
   Transportation
-  Savings
-  Utilities
-  Insurance
-  Healthcare
-  Entertainment
+  FoodAndGroceries
+  PersonalCareAndHealth
+  KidsAndFamily
+  EntertainmentAndLeisure
   Shopping
-  Income
-  Supermarket
-  Delivery
-  Restaurants
-  HouseImprovements
   Education
-  Clothes
-  Pharmacy
-  Taxes
+  FinancialExpenses
+  Income
+  GiftsAndDonations
+  Travel
+  Miscellaneous
+}
+
+enum SubCategory {
+  // Housing
+  Mortgage
+  Rent
+  Utilities
+  HomeInsurance
+  PropertyTaxes
+  HomeMaintenanceAndRepairs
+  // Transportation
+  PublicTransportation
+  Fuel
+  CarInsurance
+  CarMaintenanceAndRepairs
+  Parking
+  RoadTax
+  Tolls
+  RideSharingServices
+  OVChipkaartRecharges
+  // Food & Groceries
+  Groceries
+  RestaurantsAndDiningOut
+  TakeawayDelivery
+  CoffeeSnacks
+  // Personal Care & Health
+  HealthInsurance
+  PharmacyMedications
+  GymAndFitness
+  PersonalCareProducts
+  DoctorSpecialistVisits
+  // Kids & Family
+  Childcare
+  KidsActivitiesAndEntertainment
+  // Entertainment & Leisure
+  MoviesCinema
+  EventsConcertsAttractions
+  HobbiesAndRecreation
+  LotteryGambling
+  // Shopping
+  Clothing
+  ElectronicsAndAppliances
+  HomeGoodsAndFurniture
+  BooksAndStationery
+  // Education
+  TuitionSchoolFees
+  BooksAndSupplies
+  LanguageClasses
+  // Financial Expenses
+  BankFees
+  CreditCardPayments
+  LoanPayments
+  TransferFees
+  // Income
+  Salary
+  OtherIncome
+  Compensation
+  // Gifts & Donations
+  Gifts
+  CharitableDonations
+  // Travel
+  Accommodation
+  Activities
+  Food
+  Transportation
+  // Miscellaneous
   Other
 }
 
@@ -45,7 +107,8 @@ model Transaction {
   description  String
   amount       Float
   type         TransactionType
-  category     CategoryName
+  mainCategory MainCategory   @default(Miscellaneous)
+  subCategory  SubCategory    @default(Other)
   account      String
   counterparty String?
   notes        String?
@@ -56,7 +119,8 @@ model Transaction {
 model CategoryPattern {
   id         String      @id @default(cuid())
   pattern    String      @unique
-  category   CategoryName
+  mainCategory MainCategory
+  subCategory SubCategory
   confidence Float       @default(1.0)
   usageCount Int         @default(0)
   createdAt  DateTime    @default(now())

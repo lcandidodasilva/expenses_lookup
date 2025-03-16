@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
-import { Transaction, CategoryName } from '@/types/transaction';
+import { Transaction } from '@/types/transaction';
 import { v4 as uuidv4 } from 'uuid';
-import { categorizeThroughGPT } from './gptCategorizer';
+import { categorizeWithGemini } from './geminiCategorizer';
 
 const COLUMN_MAPPINGS = {
   date: ['Date', 'date', 'DATE', 'Transaction Date', 'transaction_date'],
@@ -54,7 +54,8 @@ export const parseCSV = (file: File): Promise<Transaction[]> => {
               }
 
               const description = row[descriptionColumn];
-              const category = await categorizeThroughGPT(description);
+              // Get both main category and subcategory from Gemini
+              const { mainCategory, subCategory } = await categorizeWithGemini(description);
               
               return {
                 id: uuidv4(),
@@ -62,7 +63,8 @@ export const parseCSV = (file: File): Promise<Transaction[]> => {
                 description: description,
                 amount: Math.abs(amount),
                 type: type,
-                category: category,
+                mainCategory: mainCategory,
+                subCategory: subCategory,
                 account: accountColumn ? row[accountColumn] : 'Unknown',
                 counterparty: counterpartyColumn ? row[counterpartyColumn] : null,
                 notes: notesColumn ? row[notesColumn] : null,
@@ -108,24 +110,4 @@ function parseDate(dateStr: string): Date {
     throw new Error(`Invalid date format: ${dateStr}`);
   }
   return date;
-}
-
-const detectCategory = (description: string): CategoryName => {
-  description = description.toLowerCase();
-  
-  if (description.match(/salary|payroll|deposit/)) return 'Income';
-  if (description.match(/rent|mortgage|housing/)) return 'Housing';
-  if (description.match(/uber|lyft|gas|parking|transit/)) return 'Transportation';
-  if (description.match(/grocery|food|meal|albert heijn|jumbo|lidl|aldi|plus|dirk/)) return 'Supermarket';
-  if (description.match(/electricity|water|internet|phone/)) return 'Utilities';
-  if (description.match(/insurance/)) return 'Insurance';
-  if (description.match(/doctor|hospital|pharmacy|medical/)) return 'Healthcare';
-  if (description.match(/netflix|spotify|movie|entertainment/)) return 'Entertainment';
-  if (description.match(/amazon|walmart|target|shopping/)) return 'Shopping';
-  if (description.match(/delivery|takeout|takeaway|thuisbezorgd|deliveroo|uber eats/)) return 'Delivery';
-  if (description.match(/savings|spaarrekening/)) return 'Savings';
-  if (description.match(/restaurant|dining|cafe|bar|eetcafe|iens|dinner|lunch|bistro|brasserie/)) return 'Restaurants';
-  if (description.match(/ikea|praxis|gamma|action|karwei|hornbach|home depot|furniture|lamp|decoration|home improvement/)) return 'HouseImprovements';
-  
-  return 'Other';
-}; 
+} 
