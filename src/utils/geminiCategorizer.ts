@@ -1,6 +1,6 @@
 import { MainCategory, SubCategory, MAIN_CATEGORIES, CATEGORY_MAPPING } from '@/types/transaction';
 import prisma from '@/lib/db';
-import { CategoryName } from '@prisma/client';
+import { $Enums } from '@prisma/client';
 
 // Gemini API key
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -18,25 +18,15 @@ async function getCategoryPatterns() {
     const patternsByCategory: Record<string, string[]> = {};
     
     patterns.forEach(pattern => {
-      // Use the category field from the database schema
-      // We'll format it as "MainCategory -> SubCategory" for the prompt
-      const categoryParts = pattern.category.split('_');
-      let mainCategory = '';
-      let subCategory = '';
+      // Format it as "MainCategory -> SubCategory" for the prompt
+      const mainCategory = pattern.mainCategory;
+      const subCategory = pattern.subCategory;
       
-      if (categoryParts.length >= 2) {
-        // Convert from database format (e.g., "FOOD_GROCERIES") to display format
-        mainCategory = categoryParts[0];
-        
-        // Join remaining parts with spaces
-        subCategory = categoryParts.slice(1).join(' ');
-      } else {
-        // Fallback if category format is unexpected
-        mainCategory = 'Miscellaneous';
-        subCategory = 'Other';
-      }
+      // Convert from database format to display format
+      const formattedMainCategory = mainCategory.replace(/([A-Z])/g, ' $1').trim().replace(/And/g, '&');
+      const formattedSubCategory = subCategory.replace(/([A-Z])/g, ' $1').trim().replace(/And/g, '&');
       
-      const category = `${mainCategory} -> ${subCategory}`;
+      const category = `${formattedMainCategory} -> ${formattedSubCategory}`;
       if (!patternsByCategory[category]) {
         patternsByCategory[category] = [];
       }
@@ -489,4 +479,4 @@ function fallbackCategorization(description: string): { mainCategory: MainCatego
   // If no specific category is found, return Miscellaneous -> Other
   console.log(`No pattern matched for: "${description}", categorizing as "Miscellaneous -> Other"`);
   return { mainCategory: 'Miscellaneous', subCategory: 'Other' };
-} 
+}

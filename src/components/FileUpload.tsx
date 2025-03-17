@@ -98,7 +98,7 @@ export default function FileUpload({ onFileUpload }: FileUploadProps) {
           />
         </label>
         <p className="mt-4 text-sm text-gray-500">
-          Maximum file size: 1MB
+          Maximum file size: 2MB
         </p>
       </div>
       {error && (

@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,6 +5,32 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Transaction {
+  id           String          @id @default(cuid())
+  date         DateTime
+  description  String
+  amount       Float
+  account      String
+  counterparty String?
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  type         TransactionType
+  mainCategory MainCategory    @default(Miscellaneous)
+  subCategory  SubCategory     @default(Other)
+}
+
+model CategoryPattern {
+  id           String       @id @default(cuid())
+  pattern      String       @unique
+  confidence   Float        @default(1.0)
+  usageCount   Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  mainCategory MainCategory
+  subCategory  SubCategory
 }
 
 enum TransactionType {
@@ -35,14 +55,12 @@ enum MainCategory {
 }
 
 enum SubCategory {
-  // Housing
   Mortgage
   Rent
   Utilities
   HomeInsurance
   PropertyTaxes
   HomeMaintenanceAndRepairs
-  // Transportation
   PublicTransportation
   Fuel
   CarInsurance
@@ -52,77 +70,40 @@ enum SubCategory {
   Tolls
   RideSharingServices
   OVChipkaartRecharges
-  // Food & Groceries
   Groceries
   RestaurantsAndDiningOut
   TakeawayDelivery
   CoffeeSnacks
-  // Personal Care & Health
   HealthInsurance
   PharmacyMedications
   GymAndFitness
   PersonalCareProducts
   DoctorSpecialistVisits
-  // Kids & Family
   Childcare
   KidsActivitiesAndEntertainment
-  // Entertainment & Leisure
   MoviesCinema
   EventsConcertsAttractions
   HobbiesAndRecreation
   LotteryGambling
-  // Shopping
   Clothing
   ElectronicsAndAppliances
   HomeGoodsAndFurniture
   BooksAndStationery
-  // Education
   TuitionSchoolFees
   BooksAndSupplies
   LanguageClasses
-  // Financial Expenses
   BankFees
   CreditCardPayments
   LoanPayments
   TransferFees
-  // Income
   Salary
   OtherIncome
   Compensation
-  // Gifts & Donations
   Gifts
   CharitableDonations
-  // Travel
   Accommodation
   Activities
   Food
   Transportation
-  // Miscellaneous
   Other
-}
-
-model Transaction {
-  id           String         @id @default(cuid())
-  date         DateTime
-  description  String
-  amount       Float
-  type         TransactionType
-  mainCategory MainCategory   @default(Miscellaneous)
-  subCategory  SubCategory    @default(Other)
-  account      String
-  counterparty String?
-  notes        String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-}
-
-model CategoryPattern {
-  id         String      @id @default(cuid())
-  pattern    String      @unique
-  mainCategory MainCategory
-  subCategory SubCategory
-  confidence Float       @default(1.0)
-  usageCount Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
 }

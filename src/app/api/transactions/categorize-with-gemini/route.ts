@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { categorizeWithGemini } from '@/utils/geminiCategorizer';
-import { CategoryName } from '@prisma/client';
 
 export async function POST(request: Request) {
   try {
@@ -31,15 +30,16 @@ export async function POST(request: Request) {
     // Categorize the transaction using Gemini
     const { mainCategory, subCategory } = await categorizeWithGemini(description);
     
-    // Combine mainCategory and subCategory into a single category string
-    // This is a temporary solution until we fully migrate to the 2-level categorization
-    const combinedCategory = `${mainCategory}_${subCategory.replace(/\s+/g, '')}`;
+    // Convert to database enum values
+    const dbMainCategory = mainCategory.replace(/\s+&\s+/g, 'And').replace(/\s+/g, '');
+    const dbSubCategory = subCategory.replace(/\s+&\s+/g, 'And').replace(/\//g, '').replace(/\s+/g, '');
 
     // Update the transaction in the database
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
-        category: combinedCategory as unknown as CategoryName,
+        mainCategory: dbMainCategory,
+        subCategory: dbSubCategory,
       },
     });
 
@@ -49,12 +49,14 @@ export async function POST(request: Request) {
         pattern: description.toLowerCase(),
       },
       update: {
-        category: combinedCategory as unknown as CategoryName,
+        mainCategory: dbMainCategory,
+        subCategory: dbSubCategory,
         usageCount: { increment: 1 },
       },
       create: {
         pattern: description.toLowerCase(),
-        category: combinedCategory as unknown as CategoryName,
+        mainCategory: dbMainCategory,
+        subCategory: dbSubCategory,
         confidence: 0.9, // High confidence since it's from Gemini
         usageCount: 1,
       },
@@ -108,15 +110,16 @@ export async function PUT(request: Request) {
           // Categorize the transaction using Gemini
           const { mainCategory, subCategory } = await categorizeWithGemini(transaction.description);
           
-          // Combine mainCategory and subCategory into a single category string
-          // This is a temporary solution until we fully migrate to the 2-level categorization
-          const combinedCategory = `${mainCategory}_${subCategory.replace(/\s+/g, '')}`;
+          // Convert to database enum values
+          const dbMainCategory = mainCategory.replace(/\s+&\s+/g, 'And').replace(/\s+/g, '');
+          const dbSubCategory = subCategory.replace(/\s+&\s+/g, 'And').replace(/\//g, '').replace(/\s+/g, '');
 
           // Update the transaction in the database
           const updatedTransaction = await prisma.transaction.update({
             where: { id: transaction.id },
             data: {
-              category: combinedCategory as unknown as CategoryName,
+              mainCategory: dbMainCategory,
+              subCategory: dbSubCategory,
             },
           });
 
@@ -126,12 +129,14 @@ export async function PUT(request: Request) {
               pattern: transaction.description.toLowerCase(),
             },
             update: {
-              category: combinedCategory as unknown as CategoryName,
+              mainCategory: dbMainCategory,
+              subCategory: dbSubCategory,
               usageCount: { increment: 1 },
             },
             create: {
               pattern: transaction.description.toLowerCase(),
-              category: combinedCategory as unknown as CategoryName,
+              mainCategory: dbMainCategory,
+              subCategory: dbSubCategory,
               confidence: 0.9, // High confidence since it's from Gemini
               usageCount: 1,
             },

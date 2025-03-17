@@ -1,7 +1,8 @@
 import Papa from 'papaparse';
-import { Transaction } from '@/types/transaction';
+import { Transaction, MainCategory, SubCategory } from '@/types/transaction';
 import { v4 as uuidv4 } from 'uuid';
 import { categorizeWithGemini } from './geminiCategorizer';
+import { $Enums } from '@prisma/client';
 
 const COLUMN_MAPPINGS = {
   date: ['Date', 'date', 'DATE', 'Transaction Date', 'transaction_date'],
@@ -15,6 +16,12 @@ const COLUMN_MAPPINGS = {
 
 function findColumnName(headers: string[], possibleNames: string[]): string | null {
   return possibleNames.find(name => headers.includes(name)) || null;
+}
+
+// Helper function to convert category names to valid enum values
+function convertToValidCategoryFormat(category: string): string {
+  // Remove spaces and special characters, convert "Food & Groceries" to "FoodAndGroceries"
+  return category.replace(/\s+&\s+/g, 'And').replace(/\//g, '').replace(/\s+/g, '');
 }
 
 export const parseCSV = (file: File): Promise<Transaction[]> => {
@@ -63,8 +70,8 @@ export const parseCSV = (file: File): Promise<Transaction[]> => {
                 description: description,
                 amount: Math.abs(amount),
                 type: type,
-                mainCategory: mainCategory,
-                subCategory: subCategory,
+                mainCategory: mainCategory as MainCategory,
+                subCategory: subCategory as SubCategory,
                 account: accountColumn ? row[accountColumn] : 'Unknown',
                 counterparty: counterpartyColumn ? row[counterpartyColumn] : null,
                 notes: notesColumn ? row[notesColumn] : null,
@@ -110,4 +117,4 @@ function parseDate(dateStr: string): Date {
     throw new Error(`Invalid date format: ${dateStr}`);
   }
   return date;
-} 
+}

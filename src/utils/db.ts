@@ -1,355 +1,416 @@
-import { PrismaClient, Prisma, MainCategory, SubCategory } from '@prisma/client';
-import { Transaction as AppTransaction, MainCategory as AppMainCategory, SubCategory as AppSubCategory } from '@/types/transaction';
+import { PrismaClient } from '@prisma/client';
+import { Transaction, MainCategory, SubCategory, MAIN_CATEGORIES, CATEGORY_MAPPING } from '../types/transaction';
+
+const prisma = new PrismaClient();
 
 interface PatternType {
-  id: string;
   pattern: string;
-  mainCategory: string;
-  subCategory: string;
-  createdAt: Date;
-  updatedAt: Date;
-  confidence: number;
-  usageCount: number;
+  mainCategory: MainCategory;
+  subCategory: SubCategory;
 }
 
-declare global {
-  var prisma: PrismaClient | undefined;
-}
+// Map from display format to database format
+const DISPLAY_TO_DB_CATEGORY: Record<string, MainCategory> = {
+  'Food & Groceries': 'FoodAndGroceries',
+  'Personal Care & Health': 'PersonalCareAndHealth',
+  'Kids & Family': 'KidsAndFamily',
+  'Entertainment & Leisure': 'EntertainmentAndLeisure',
+  'Financial Expenses': 'FinancialExpenses',
+  'Gifts & Donations': 'GiftsAndDonations',
+  // Add direct mappings for categories that don't need conversion
+  'Housing': 'Housing',
+  'Transportation': 'Transportation',
+  'Shopping': 'Shopping',
+  'Education': 'Education',
+  'Income': 'Income',
+  'Travel': 'Travel',
+  'Miscellaneous': 'Miscellaneous'
+};
 
-const prisma = global.prisma || new PrismaClient();
+// Map from database format to display format
+const DB_TO_DISPLAY_CATEGORY: Record<MainCategory, string> = {
+  'FoodAndGroceries': 'Food & Groceries',
+  'PersonalCareAndHealth': 'Personal Care & Health',
+  'KidsAndFamily': 'Kids & Family',
+  'EntertainmentAndLeisure': 'Entertainment & Leisure',
+  'FinancialExpenses': 'Financial Expenses',
+  'GiftsAndDonations': 'Gifts & Donations',
+  // Add direct mappings for categories that don't need conversion
+  'Housing': 'Housing',
+  'Transportation': 'Transportation',
+  'Shopping': 'Shopping',
+  'Education': 'Education',
+  'Income': 'Income',
+  'Travel': 'Travel',
+  'Miscellaneous': 'Miscellaneous'
+};
 
-if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma;
-}
+// Map from display format to database format for subcategories
+const DISPLAY_TO_DB_SUBCATEGORY: Record<string, SubCategory> = {
+  // Housing
+  'Mortgage': 'Mortgage',
+  'Rent': 'Rent',
+  'Utilities': 'Utilities',
+  'Home Insurance': 'HomeInsurance',
+  'Home-Insurance': 'HomeInsurance',
+  'Home/Insurance': 'HomeInsurance',
+  'Property Taxes': 'PropertyTaxes',
+  'Property-Taxes': 'PropertyTaxes',
+  'Property/Taxes': 'PropertyTaxes',
+  'Home Maintenance & Repairs': 'HomeMaintenanceAndRepairs',
+  'Home Maintenance and Repairs': 'HomeMaintenanceAndRepairs',
+  'Home Maintenance/Repairs': 'HomeMaintenanceAndRepairs',
+  'Home-Maintenance-Repairs': 'HomeMaintenanceAndRepairs',
+  // Transportation
+  'Public Transportation': 'PublicTransportation',
+  'Public-Transportation': 'PublicTransportation',
+  'Public/Transportation': 'PublicTransportation',
+  'Fuel': 'Fuel',
+  'Car Insurance': 'CarInsurance',
+  'Car-Insurance': 'CarInsurance',
+  'Car/Insurance': 'CarInsurance',
+  'Car Maintenance & Repairs': 'CarMaintenanceAndRepairs',
+  'Car Maintenance and Repairs': 'CarMaintenanceAndRepairs',
+  'Car Maintenance/Repairs': 'CarMaintenanceAndRepairs',
+  'Car-Maintenance-Repairs': 'CarMaintenanceAndRepairs',
+  'Parking': 'Parking',
+  'Road Tax': 'RoadTax',
+  'Road-Tax': 'RoadTax',
+  'Road/Tax': 'RoadTax',
+  'Tolls': 'Tolls',
+  'Ride Sharing Services': 'RideSharingServices',
+  'Ride-Sharing Services': 'RideSharingServices',
+  'Ride Sharing': 'RideSharingServices',
+  'Ride-Sharing': 'RideSharingServices',
+  'Ride/Sharing': 'RideSharingServices',
+  'Ride/Sharing/Services': 'RideSharingServices',
+  'OV-Chipkaart Recharges': 'OVChipkaartRecharges',
+  'OV Chipkaart Recharges': 'OVChipkaartRecharges',
+  'OV/Chipkaart/Recharges': 'OVChipkaartRecharges',
+  // Food & Groceries
+  'Groceries': 'Groceries',
+  'Restaurants & Dining Out': 'RestaurantsAndDiningOut',
+  'Restaurants and Dining Out': 'RestaurantsAndDiningOut',
+  'Restaurants/Dining Out': 'RestaurantsAndDiningOut',
+  'Restaurants/Dining/Out': 'RestaurantsAndDiningOut',
+  'Takeaway & Delivery': 'TakeawayDelivery',
+  'Takeaway and Delivery': 'TakeawayDelivery',
+  'Takeaway/Delivery': 'TakeawayDelivery',
+  'Coffee & Snacks': 'CoffeeSnacks',
+  'Coffee and Snacks': 'CoffeeSnacks',
+  'Coffee/Snacks': 'CoffeeSnacks',
+  // Personal Care & Health
+  'Health Insurance': 'HealthInsurance',
+  'Health-Insurance': 'HealthInsurance',
+  'Health/Insurance': 'HealthInsurance',
+  'Pharmacy & Medications': 'PharmacyMedications',
+  'Pharmacy and Medications': 'PharmacyMedications',
+  'Pharmacy/Medications': 'PharmacyMedications',
+  'Gym & Fitness': 'GymAndFitness',
+  'Gym and Fitness': 'GymAndFitness',
+  'Gym/Fitness': 'GymAndFitness',
+  'Personal Care Products': 'PersonalCareProducts',
+  'Personal-Care-Products': 'PersonalCareProducts',
+  'Personal/Care/Products': 'PersonalCareProducts',
+  'Doctor & Specialist Visits': 'DoctorSpecialistVisits',
+  'Doctor and Specialist Visits': 'DoctorSpecialistVisits',
+  'Doctor/Specialist Visits': 'DoctorSpecialistVisits',
+  'Doctor/Specialist/Visits': 'DoctorSpecialistVisits',
+  // Kids & Family
+  'Childcare': 'Childcare',
+  'Kids Activities & Entertainment': 'KidsActivitiesAndEntertainment',
+  'Kids Activities and Entertainment': 'KidsActivitiesAndEntertainment',
+  'Kids Activities/Entertainment': 'KidsActivitiesAndEntertainment',
+  'Kids/Activities/Entertainment': 'KidsActivitiesAndEntertainment',
+  // Entertainment & Leisure
+  'Movies & Cinema': 'MoviesCinema',
+  'Movies and Cinema': 'MoviesCinema',
+  'Movies/Cinema': 'MoviesCinema',
+  'Events, Concerts & Attractions': 'EventsConcertsAttractions',
+  'Events, Concerts and Attractions': 'EventsConcertsAttractions',
+  'Events, Concerts/Attractions': 'EventsConcertsAttractions',
+  'Events/Concerts/Attractions': 'EventsConcertsAttractions',
+  'Hobbies & Recreation': 'HobbiesAndRecreation',
+  'Hobbies and Recreation': 'HobbiesAndRecreation',
+  'Hobbies/Recreation': 'HobbiesAndRecreation',
+  'Lottery & Gambling': 'LotteryGambling',
+  'Lottery and Gambling': 'LotteryGambling',
+  'Lottery/Gambling': 'LotteryGambling',
+  // Shopping
+  'Clothing': 'Clothing',
+  'Electronics & Appliances': 'ElectronicsAndAppliances',
+  'Electronics and Appliances': 'ElectronicsAndAppliances',
+  'Electronics/Appliances': 'ElectronicsAndAppliances',
+  'Home Goods & Furniture': 'HomeGoodsAndFurniture',
+  'Home Goods and Furniture': 'HomeGoodsAndFurniture',
+  'Home Goods/Furniture': 'HomeGoodsAndFurniture',
+  'Home/Goods/Furniture': 'HomeGoodsAndFurniture',
+  'Books & Stationery': 'BooksAndStationery',
+  'Books and Stationery': 'BooksAndStationery',
+  'Books/Stationery': 'BooksAndStationery',
+  // Education
+  'Tuition & School Fees': 'TuitionSchoolFees',
+  'Tuition and School Fees': 'TuitionSchoolFees',
+  'Tuition/School Fees': 'TuitionSchoolFees',
+  'Tuition/School/Fees': 'TuitionSchoolFees',
+  'Books & Supplies': 'BooksAndSupplies',
+  'Books and Supplies': 'BooksAndSupplies',
+  'Books/Supplies': 'BooksAndSupplies',
+  'Language Classes': 'LanguageClasses',
+  'Language-Classes': 'LanguageClasses',
+  // Financial Expenses
+  'Bank Fees': 'BankFees',
+  'Bank-Fees': 'BankFees',
+  'Bank/Fees': 'BankFees',
+  'Credit Card Payments': 'CreditCardPayments',
+  'Credit-Card-Payments': 'CreditCardPayments',
+  'Credit/Card/Payments': 'CreditCardPayments',
+  'Loan Payments': 'LoanPayments',
+  'Loan-Payments': 'LoanPayments',
+  'Loan/Payments': 'LoanPayments',
+  'Transfer Fees': 'TransferFees',
+  'Transfer-Fees': 'TransferFees',
+  'Transfer/Fees': 'TransferFees',
+  // Income
+  'Salary': 'Salary',
+  'Other Income': 'OtherIncome',
+  'Other-Income': 'OtherIncome',
+  'Other/Income': 'OtherIncome',
+  'Compensation': 'Compensation',
+  // Gifts & Donations
+  'Gifts': 'Gifts',
+  'Charitable Donations': 'CharitableDonations',
+  'Charitable-Donations': 'CharitableDonations',
+  'Charitable/Donations': 'CharitableDonations',
+  // Travel
+  'Accommodation': 'Accommodation',
+  'Activities': 'Activities',
+  'Food': 'Food',
+  'Transportation': 'Transportation',
+  // Miscellaneous
+  'Other': 'Other',
+  // Direct mappings for database format
+  ...Object.values(MAIN_CATEGORIES).reduce((acc, category) => ({
+    ...acc,
+    ...CATEGORY_MAPPING[category].reduce((subAcc, subCategory) => ({
+      ...subAcc,
+      [subCategory]: subCategory
+    }), {})
+  }), {})
+};
 
-// Helper function to convert app category names to database enum values
-function convertToDatabaseCategories(mainCategory: AppMainCategory, subCategory: AppSubCategory): { mainCategory: MainCategory, subCategory: SubCategory } {
-  // Convert main category (replace spaces and special characters)
-  let dbMainCategory = mainCategory.replace(/\s+&\s+/g, 'And').replace(/\s+/g, '') as MainCategory;
+// Map from database format to display format for subcategories
+const DB_TO_DISPLAY_SUBCATEGORY: Record<SubCategory, string> = {
+  // Housing
+  'Mortgage': 'Mortgage',
+  'Rent': 'Rent',
+  'Utilities': 'Utilities',
+  'HomeInsurance': 'Home Insurance',
+  'PropertyTaxes': 'Property Taxes',
+  'HomeMaintenanceAndRepairs': 'Home Maintenance & Repairs',
+  // Transportation
+  'PublicTransportation': 'Public Transportation',
+  'Fuel': 'Fuel',
+  'CarInsurance': 'Car Insurance',
+  'CarMaintenanceAndRepairs': 'Car Maintenance & Repairs',
+  'Parking': 'Parking',
+  'RoadTax': 'Road Tax',
+  'Tolls': 'Tolls',
+  'RideSharingServices': 'Ride Sharing Services',
+  'OVChipkaartRecharges': 'OV-Chipkaart Recharges',
+  // Food & Groceries
+  'Groceries': 'Groceries',
+  'RestaurantsAndDiningOut': 'Restaurants & Dining Out',
+  'TakeawayDelivery': 'Takeaway & Delivery',
+  'CoffeeSnacks': 'Coffee & Snacks',
+  // Personal Care & Health
+  'HealthInsurance': 'Health Insurance',
+  'PharmacyMedications': 'Pharmacy & Medications',
+  'GymAndFitness': 'Gym & Fitness',
+  'PersonalCareProducts': 'Personal Care Products',
+  'DoctorSpecialistVisits': 'Doctor & Specialist Visits',
+  // Kids & Family
+  'Childcare': 'Childcare',
+  'KidsActivitiesAndEntertainment': 'Kids Activities & Entertainment',
+  // Entertainment & Leisure
+  'MoviesCinema': 'Movies & Cinema',
+  'EventsConcertsAttractions': 'Events, Concerts & Attractions',
+  'HobbiesAndRecreation': 'Hobbies & Recreation',
+  'LotteryGambling': 'Lottery & Gambling',
+  // Shopping
+  'Clothing': 'Clothing',
+  'ElectronicsAndAppliances': 'Electronics & Appliances',
+  'HomeGoodsAndFurniture': 'Home Goods & Furniture',
+  'BooksAndStationery': 'Books & Stationery',
+  // Education
+  'TuitionSchoolFees': 'Tuition & School Fees',
+  'BooksAndSupplies': 'Books & Supplies',
+  'LanguageClasses': 'Language Classes',
+  // Financial Expenses
+  'BankFees': 'Bank Fees',
+  'CreditCardPayments': 'Credit Card Payments',
+  'LoanPayments': 'Loan Payments',
+  'TransferFees': 'Transfer Fees',
+  // Income
+  'Salary': 'Salary',
+  'OtherIncome': 'Other Income',
+  'Compensation': 'Compensation',
+  // Gifts & Donations
+  'Gifts': 'Gifts',
+  'CharitableDonations': 'Charitable Donations',
+  // Travel
+  'Accommodation': 'Accommodation',
+  'Activities': 'Activities',
+  'Food': 'Food',
+  'Transportation': 'Transportation',
+  // Miscellaneous
+  'Other': 'Other'
+};
+
+// Convert display names to database enum values
+function convertToDatabaseCategories(displayMainCategory: string, displaySubCategory: string): { mainCategory: MainCategory, subCategory: SubCategory } {
+  const mainCategory = DISPLAY_TO_DB_CATEGORY[displayMainCategory];
+  const subCategory = DISPLAY_TO_DB_SUBCATEGORY[displaySubCategory];
   
-  // Convert subcategory (replace spaces and special characters)
-  let dbSubCategory = subCategory.replace(/\s+&\s+/g, 'And').replace(/\//g, '').replace(/\s+/g, '') as SubCategory;
+  if (!mainCategory) {
+    throw new Error(`Invalid main category: ${displayMainCategory}`);
+  }
+  if (!subCategory) {
+    throw new Error(`Invalid subcategory: ${displaySubCategory}`);
+  }
   
-  return { mainCategory: dbMainCategory, subCategory: dbSubCategory };
-}
-
-// Helper function to convert database enum values to app category names
-function convertToAppCategories(mainCategory: MainCategory, subCategory: SubCategory): { mainCategory: AppMainCategory, subCategory: AppSubCategory } {
-  // Map from database enum to app category names
-  const mainCategoryMap: Record<string, AppMainCategory> = {
-    'Housing': 'Housing',
-    'Transportation': 'Transportation',
-    'FoodAndGroceries': 'Food & Groceries',
-    'PersonalCareAndHealth': 'Personal Care & Health',
-    'KidsAndFamily': 'Kids & Family',
-    'EntertainmentAndLeisure': 'Entertainment & Leisure',
-    'Shopping': 'Shopping',
-    'Education': 'Education',
-    'FinancialExpenses': 'Financial Expenses',
-    'Income': 'Income',
-    'GiftsAndDonations': 'Gifts & Donations',
-    'Travel': 'Travel',
-    'Miscellaneous': 'Miscellaneous'
-  };
-  
-  // Map from database enum to app subcategory names
-  const subCategoryMap: Record<string, AppSubCategory> = {
-    'Mortgage': 'Mortgage',
-    'Rent': 'Rent',
-    'Utilities': 'Utilities',
-    'HomeInsurance': 'Home Insurance',
-    'PropertyTaxes': 'Property Taxes',
-    'HomeMaintenanceAndRepairs': 'Home Maintenance & Repairs',
-    'PublicTransportation': 'Public Transportation',
-    'Fuel': 'Fuel',
-    'CarInsurance': 'Car Insurance',
-    'CarMaintenanceAndRepairs': 'Car Maintenance & Repairs',
-    'Parking': 'Parking',
-    'RoadTax': 'Road Tax',
-    'Tolls': 'Tolls',
-    'RideSharingServices': 'Ride-Sharing Services',
-    'OVChipkaartRecharges': 'OV-chipkaart recharges',
-    'Groceries': 'Groceries',
-    'RestaurantsAndDiningOut': 'Restaurants & Dining Out',
-    'TakeawayDelivery': 'Takeaway/Delivery',
-    'CoffeeSnacks': 'Coffee/Snacks',
-    'HealthInsurance': 'Health Insurance',
-    'PharmacyMedications': 'Pharmacy/Medications',
-    'GymAndFitness': 'Gym & Fitness',
-    'PersonalCareProducts': 'Personal Care Products',
-    'DoctorSpecialistVisits': 'Doctor/Specialist Visits',
-    'Childcare': 'Childcare',
-    'KidsActivitiesAndEntertainment': 'Kids Activities & Entertainment',
-    'MoviesCinema': 'Movies/Cinema',
-    'EventsConcertsAttractions': 'Events/Concerts/Attractions',
-    'HobbiesAndRecreation': 'Hobbies & Recreation',
-    'LotteryGambling': 'Lottery/Gambling',
-    'Clothing': 'Clothing',
-    'ElectronicsAndAppliances': 'Electronics & Appliances',
-    'HomeGoodsAndFurniture': 'Home Goods & Furniture',
-    'BooksAndStationery': 'Books & Stationery',
-    'TuitionSchoolFees': 'Tuition/School Fees',
-    'BooksAndSupplies': 'Books & Supplies',
-    'LanguageClasses': 'Language Classes',
-    'BankFees': 'Bank Fees',
-    'CreditCardPayments': 'Credit Card Payments',
-    'LoanPayments': 'Loan Payments',
-    'TransferFees': 'Transfer Fees',
-    'Salary': 'Salary',
-    'OtherIncome': 'Other Income',
-    'Compensation': 'Compensation',
-    'Gifts': 'Gifts',
-    'CharitableDonations': 'Charitable Donations',
-    'Accommodation': 'Accommodation',
-    'Activities': 'Activities',
-    'Food': 'Food',
-    'Transportation': 'Transportation',
-    'Other': 'Other'
-  };
-  
-  return { 
-    mainCategory: mainCategoryMap[mainCategory] || 'Miscellaneous', 
-    subCategory: subCategoryMap[subCategory] || 'Other' 
+  return {
+    mainCategory,
+    subCategory
   };
 }
 
-export async function initializeCategories() {
-  const defaultPatterns = {
-    // Housing
-    'Housing': {
-      'Mortgage': ['mortgage', 'hypotheek', 'ing hypotheken'],
-      'Rent': ['rent', 'huur'],
-      'Utilities': ['vitens', 'oxxio', 'eneco', 'vattenfall', 'essent', 'greenchoice', 'water', 'gas', 'electricity'],
-      'Home Insurance': ['woonverzekering', 'home insurance', 'nn schadeverzekering'],
-      'Property Taxes': ['gemeente aanslag', 'property tax', 'waterschapsbelasting'],
-      'Home Maintenance & Repairs': ['vve', 'home maintenance', 'repair']
-    },
-    // Transportation
-    'Transportation': {
-      'Public Transportation': ['ns.nl', 'ov-chipkaart', 'ovpay', 'gvb', 'ret', 'htm', 'connexxion', 'arriva'],
-      'Fuel': ['shell', 'bp', 'esso', 'fuel'],
-      'Car Insurance': ['car insurance', 'autoverzekering'],
-      'Car Maintenance & Repairs': ['car maintenance', 'car repair', 'garage'],
-      'Parking': ['parking', 'parkeren', 'q-park', 'p+r', 'rai parking', 'rai parkeren'],
-      'Road Tax': ['wegenbelasting', 'road tax'],
-      'Tolls': ['toll', 'tol'],
-      'Ride-Sharing Services': ['uber', 'bolt.eu'],
-      'OV-chipkaart recharges': ['ov-chipkaart recharge']
-    },
-    // Food & Groceries
-    'Food & Groceries': {
-      'Groceries': ['albert heijn', 'jumbo', 'lidl', 'aldi', 'plus', 'dirk', 'ah to go', 'ah bezorgservice', 'dekamarkt'],
-      'Restaurants & Dining Out': ['restaurant', 'dining', 'cafe', 'bar', 'eetcafe', 'iens', 'dinner', 'lunch', 'bistro', 'brasserie', 'mcdonalds', 'burger king', 'kfc'],
-      'Takeaway/Delivery': ['thuisbezorgd', 'deliveroo', 'uber eats', 'dominos', 'dp', 'new york pizza', 'takeaway', 'pizza', 'bezorg'],
-      'Coffee/Snacks': ['coffee', 'koffie', 'snack']
-    },
-    // Personal Care & Health
-    'Personal Care & Health': {
-      'Health Insurance': ['zilveren kruis', 'health insurance', 'zorgverzekering'],
-      'Pharmacy/Medications': ['apotheek', 'pharmacy', 'etos', 'kruidvat', 'da', 'medicine', 'medicijn', 'drug', 'prescription', 'recept'],
-      'Gym & Fitness': ['gym', 'fitness', 'sport', 'gymxl', 'club pellikaan'],
-      'Personal Care Products': ['personal care', 'toiletries', 'cosmetics'],
-      'Doctor/Specialist Visits': ['doctor', 'hospital', 'medical', 'huisarts', 'tandarts', 'fysio', 'ziekenhuis']
-    },
-    // Kids & Family
-    'Kids & Family': {
-      'Childcare': ['childcare', 'kinderopvang', 'stichting kinderopvang'],
-      'Kids Activities & Entertainment': ['kids', 'children', 'toys', 'intertoys', 'funky jungle']
-    },
-    // Entertainment & Leisure
-    'Entertainment & Leisure': {
-      'Movies/Cinema': ['cinema', 'movie', 'vue', 'pathe', 'kinepolis', 'bioscoop'],
-      'Events/Concerts/Attractions': ['event', 'concert', 'attraction', 'theater', 'theatre'],
-      'Hobbies & Recreation': ['hobby', 'recreation', 'netflix', 'spotify', 'disney+', 'videoland', 'prime video', 'hbo'],
-      'Lottery/Gambling': ['lottery', 'gambling', 'loterij', 'nederlandse loterij']
-    },
-    // Shopping
-    'Shopping': {
-      'Clothing': ['h&m', 'zara', 'uniqlo', 'primark', 'c&a', 'we fashion', 'only', 'vero moda', 'jack & jones', 'nike', 'adidas', 'puma', 'clothing', 'kleding', 'fashion', 'zeeman'],
-      'Electronics & Appliances': ['electronics', 'appliances', 'mediamarkt', 'coolblue'],
-      'Home Goods & Furniture': ['ikea', 'furniture', 'home goods', 'praxis', 'gamma', 'karwei', 'hornbach', 'home depot', 'lamp', 'decoration', 'home improvement'],
-      'Books & Stationery': ['books', 'stationery']
-    },
-    // Education
-    'Education': {
-      'Tuition/School Fees': ['tuition', 'school fees'],
-      'Books & Supplies': ['books', 'supplies', 'school'],
-      'Language Classes': ['mark de jong', 'aulas de holandes', 'language', 'dutch', 'holandes', 'taalcursus']
-    },
-    // Financial Expenses
-    'Financial Expenses': {
-      'Bank Fees': ['bank fees', 'kosten oranjepakket', 'kosten tweede rekeninghouder'],
-      'Credit Card Payments': ['credit card', 'creditcard', 'incasso creditcard'],
-      'Loan Payments': ['loan', 'lening'],
-      'Transfer Fees': ['transfer fee', 'transfer provisie']
-    },
-    // Income
-    'Income': {
-      'Salary': ['salary', 'payroll', 'deposit', 'salaris', 'loon', 'connexie', 'ebay marketplaces'],
-      'Other Income': ['wise', 'zalando payments', 'oranje spaarrekening', 'interest'],
-      'Compensation': ['compensation', 'refund']
-    },
-    // Gifts & Donations
-    'Gifts & Donations': {
-      'Gifts': ['gift'],
-      'Charitable Donations': ['donation', 'stg care nederland', 'charity']
-    },
-    // Travel
-    'Travel': {
-      'Accommodation': ['hotel', 'airbnb', 'accommodation'],
-      'Activities': ['activities vacation'],
-      'Food': ['food vacation'],
-      'Transportation': ['transportation vacation']
-    },
-    // Miscellaneous
-    'Miscellaneous': {
-      'Other': []
-    }
+// Convert database enum values to display names
+function convertToAppCategories(dbMainCategory: MainCategory, dbSubCategory: SubCategory): { mainCategory: string, subCategory: string } {
+  const mainCategory = DB_TO_DISPLAY_CATEGORY[dbMainCategory];
+  const subCategory = DB_TO_DISPLAY_SUBCATEGORY[dbSubCategory];
+  
+  if (!mainCategory) {
+    throw new Error(`Invalid database main category: ${dbMainCategory}`);
+  }
+  if (!subCategory) {
+    throw new Error(`Invalid database subcategory: ${dbSubCategory}`);
+  }
+  
+  return {
+    mainCategory,
+    subCategory
   };
+}
 
-  for (const [mainCategory, subcategories] of Object.entries(defaultPatterns)) {
-    for (const [subCategory, patterns] of Object.entries(subcategories)) {
-      for (const pattern of patterns) {
-        const { mainCategory: dbMainCategory, subCategory: dbSubCategory } = 
-          convertToDatabaseCategories(mainCategory as AppMainCategory, subCategory as AppSubCategory);
-        
-        await prisma.categoryPattern.upsert({
-          where: { pattern },
-          update: {},
-          create: {
-            pattern,
-            mainCategory: dbMainCategory,
-            subCategory: dbSubCategory,
-            confidence: 1.0,
-            usageCount: 0
-          }
-        });
+// Helper function to validate transaction data before saving
+function validateTransaction(transaction: { mainCategory: string, subCategory: string }): void {
+  const dbMainCategory = DISPLAY_TO_DB_CATEGORY[transaction.mainCategory];
+  const dbSubCategory = DISPLAY_TO_DB_SUBCATEGORY[transaction.subCategory];
+  
+  if (!dbMainCategory) {
+    throw new Error(`Invalid main category: ${transaction.mainCategory}`);
+  }
+  if (!dbSubCategory) {
+    throw new Error(`Invalid subcategory: ${transaction.subCategory}`);
+  }
+  if (!CATEGORY_MAPPING[dbMainCategory].includes(dbSubCategory)) {
+    throw new Error(`Invalid subcategory ${transaction.subCategory} for main category ${transaction.mainCategory}`);
+  }
+}
+
+// Initialize categories in the database
+export async function initializeCategories(): Promise<void> {
+  // No need to initialize categories as they are enums in the database
+}
+
+// Save transactions to the database
+export async function saveTransactions(transactions: Transaction[]): Promise<Transaction[]> {
+  const savedTransactions: Transaction[] = [];
+  
+  for (const transaction of transactions) {
+    validateTransaction(transaction);
+    const { mainCategory, subCategory } = convertToDatabaseCategories(transaction.mainCategory, transaction.subCategory);
+    const savedTransaction = await prisma.transaction.create({
+      data: {
+        id: transaction.id,
+        date: transaction.date,
+        description: transaction.description,
+        amount: transaction.amount,
+        type: transaction.type,
+        mainCategory,
+        subCategory,
+        account: transaction.account,
+        counterparty: transaction.counterparty,
+        notes: transaction.notes
       }
-    }
-  }
-}
-
-export async function saveTransactions(transactions: AppTransaction[]) {
-  const results = [];
-  
-  for (const t of transactions) {
-    // Check if a similar transaction already exists
-    // We consider a transaction duplicate if it has the same date, description, amount, and type
-    const existingTransaction = await prisma.transaction.findFirst({
-      where: {
-        date: {
-          // Match the date ignoring time component
-          gte: new Date(new Date(t.date).setHours(0, 0, 0, 0)),
-          lt: new Date(new Date(t.date).setHours(23, 59, 59, 999)),
-        },
-        description: t.description,
-        amount: t.amount,
-        type: t.type,
-      },
     });
-
-    if (!existingTransaction) {
-      // Convert app categories to database enum values
-      const { mainCategory: dbMainCategory, subCategory: dbSubCategory } = 
-        convertToDatabaseCategories(t.mainCategory, t.subCategory);
-      
-      // Only create if no duplicate exists
-      const newTransaction = await prisma.transaction.create({
-        data: {
-          date: t.date,
-          description: t.description,
-          amount: t.amount,
-          type: t.type,
-          mainCategory: dbMainCategory,
-          subCategory: dbSubCategory,
-          account: t.account,
-          counterparty: t.counterparty || null,
-          notes: t.notes || null,
-        }
-      });
-      results.push(newTransaction);
-    } else {
-      // Return the existing transaction
-      results.push(existingTransaction);
-    }
+    
+    // Convert the database categories back to display format for the response
+    const { mainCategory: displayMainCategory, subCategory: displaySubCategory } = convertToAppCategories(savedTransaction.mainCategory, savedTransaction.subCategory);
+    savedTransactions.push({
+      ...savedTransaction,
+      mainCategory: displayMainCategory,
+      subCategory: displaySubCategory
+    });
   }
   
-  return results;
+  return savedTransactions;
 }
 
+// Update transaction category
 export async function updateTransactionCategory(
   transactionId: string,
   mainCategory: string,
   subCategory: string
-) {
-  // Convert app categories to database enum values
-  const { mainCategory: dbMainCategory, subCategory: dbSubCategory } = 
-    convertToDatabaseCategories(mainCategory as AppMainCategory, subCategory as AppSubCategory);
-  
-  return prisma.transaction.update({
+): Promise<void> {
+  validateTransaction({ mainCategory, subCategory });
+  const { mainCategory: dbMainCategory, subCategory: dbSubCategory } = convertToDatabaseCategories(mainCategory, subCategory);
+  await prisma.transaction.update({
     where: { id: transactionId },
-    data: { 
+    data: {
       mainCategory: dbMainCategory,
       subCategory: dbSubCategory
     }
   });
 }
 
-export async function getTransactionsByPeriod(start: Date | string, end: Date | string) {
-  const startDate = start instanceof Date ? start : new Date(start);
-  const endDate = end instanceof Date ? end : new Date(end);
-
+// Get transactions by period
+export async function getTransactionsByPeriod(startDate: Date, endDate: Date): Promise<Transaction[]> {
   const transactions = await prisma.transaction.findMany({
     where: {
       date: {
         gte: startDate,
-        lte: endDate,
-      },
-    },
-    orderBy: {
-      date: 'desc',
-    },
+        lte: endDate
+      }
+    }
   });
-  
-  // Convert database categories to app categories
-  return transactions.map(t => {
-    const { mainCategory, subCategory } = convertToAppCategories(t.mainCategory, t.subCategory);
+
+  return transactions.map(transaction => {
+    const { mainCategory, subCategory } = convertToAppCategories(transaction.mainCategory, transaction.subCategory);
     return {
-      ...t,
+      ...transaction,
       mainCategory,
       subCategory
     };
   });
 }
 
-export async function getCategories() {
-  const patterns = await prisma.categoryPattern.findMany({
-    orderBy: { usageCount: 'desc' }
-  });
-  
-  // Convert database categories to app categories
-  return patterns.map(p => {
-    const { mainCategory, subCategory } = convertToAppCategories(p.mainCategory, p.subCategory);
-    return {
-      ...p,
-      mainCategory,
-      subCategory
-    };
-  });
+// Get all categories
+export async function getCategories(): Promise<{ mainCategory: string, subCategory: string }[]> {
+  const patterns = await prisma.categoryPattern.findMany();
+  return patterns.map(pattern => convertToAppCategories(pattern.mainCategory, pattern.subCategory));
 }
 
-export async function addPattern(mainCategory: string, subCategory: string, pattern: string) {
-  // Convert app categories to database enum values
-  const { mainCategory: dbMainCategory, subCategory: dbSubCategory } = 
-    convertToDatabaseCategories(mainCategory as AppMainCategory, subCategory as AppSubCategory);
-  
-  return prisma.categoryPattern.create({
+// Add a new pattern
+export async function addPattern(pattern: string, mainCategory: string, subCategory: string): Promise<void> {
+  validateTransaction({ mainCategory, subCategory });
+  const { mainCategory: dbMainCategory, subCategory: dbSubCategory } = convertToDatabaseCategories(mainCategory, subCategory);
+  await prisma.categoryPattern.create({
     data: {
       pattern,
       mainCategory: dbMainCategory,
-      subCategory: dbSubCategory,
-      confidence: 1.0,
-      usageCount: 0
+      subCategory: dbSubCategory
     }
   });
 }

@@ -3,30 +3,30 @@ export type TransactionType = 'credit' | 'debit';
 export type MainCategory = 
   | 'Housing'
   | 'Transportation'
-  | 'Food & Groceries'
-  | 'Personal Care & Health'
-  | 'Kids & Family'
-  | 'Entertainment & Leisure'
+  | 'FoodAndGroceries'
+  | 'PersonalCareAndHealth'
+  | 'KidsAndFamily'
+  | 'EntertainmentAndLeisure'
   | 'Shopping'
   | 'Education'
-  | 'Financial Expenses'
+  | 'FinancialExpenses'
   | 'Income'
-  | 'Gifts & Donations'
+  | 'GiftsAndDonations'
   | 'Travel'
   | 'Miscellaneous';
 
 export const MAIN_CATEGORIES: MainCategory[] = [
   'Housing',
   'Transportation',
-  'Food & Groceries',
-  'Personal Care & Health',
-  'Kids & Family',
-  'Entertainment & Leisure',
+  'FoodAndGroceries',
+  'PersonalCareAndHealth',
+  'KidsAndFamily',
+  'EntertainmentAndLeisure',
   'Shopping',
   'Education',
-  'Financial Expenses',
+  'FinancialExpenses',
   'Income',
-  'Gifts & Donations',
+  'GiftsAndDonations',
   'Travel',
   'Miscellaneous'
 ];
@@ -36,59 +36,59 @@ export type SubCategory =
   | 'Mortgage'
   | 'Rent'
   | 'Utilities'
-  | 'Home Insurance'
-  | 'Property Taxes'
-  | 'Home Maintenance & Repairs'
+  | 'HomeInsurance'
+  | 'PropertyTaxes'
+  | 'HomeMaintenanceAndRepairs'
   // Transportation
-  | 'Public Transportation'
+  | 'PublicTransportation'
   | 'Fuel'
-  | 'Car Insurance'
-  | 'Car Maintenance & Repairs'
+  | 'CarInsurance'
+  | 'CarMaintenanceAndRepairs'
   | 'Parking'
-  | 'Road Tax'
+  | 'RoadTax'
   | 'Tolls'
-  | 'Ride-Sharing Services'
-  | 'OV-chipkaart recharges'
+  | 'RideSharingServices'
+  | 'OVChipkaartRecharges'
   // Food & Groceries
   | 'Groceries'
-  | 'Restaurants & Dining Out'
-  | 'Takeaway/Delivery'
-  | 'Coffee/Snacks'
+  | 'RestaurantsAndDiningOut'
+  | 'TakeawayDelivery'
+  | 'CoffeeSnacks'
   // Personal Care & Health
-  | 'Health Insurance'
-  | 'Pharmacy/Medications'
-  | 'Gym & Fitness'
-  | 'Personal Care Products'
-  | 'Doctor/Specialist Visits'
+  | 'HealthInsurance'
+  | 'PharmacyMedications'
+  | 'GymAndFitness'
+  | 'PersonalCareProducts'
+  | 'DoctorSpecialistVisits'
   // Kids & Family
   | 'Childcare'
-  | 'Kids Activities & Entertainment'
+  | 'KidsActivitiesAndEntertainment'
   // Entertainment & Leisure
-  | 'Movies/Cinema'
-  | 'Events/Concerts/Attractions'
-  | 'Hobbies & Recreation'
-  | 'Lottery/Gambling'
+  | 'MoviesCinema'
+  | 'EventsConcertsAttractions'
+  | 'HobbiesAndRecreation'
+  | 'LotteryGambling'
   // Shopping
   | 'Clothing'
-  | 'Electronics & Appliances'
-  | 'Home Goods & Furniture'
-  | 'Books & Stationery'
+  | 'ElectronicsAndAppliances'
+  | 'HomeGoodsAndFurniture'
+  | 'BooksAndStationery'
   // Education
-  | 'Tuition/School Fees'
-  | 'Books & Supplies'
-  | 'Language Classes'
+  | 'TuitionSchoolFees'
+  | 'BooksAndSupplies'
+  | 'LanguageClasses'
   // Financial Expenses
-  | 'Bank Fees'
-  | 'Credit Card Payments'
-  | 'Loan Payments'
-  | 'Transfer Fees'
+  | 'BankFees'
+  | 'CreditCardPayments'
+  | 'LoanPayments'
+  | 'TransferFees'
   // Income
   | 'Salary'
-  | 'Other Income'
+  | 'OtherIncome'
   | 'Compensation'
   // Gifts & Donations
   | 'Gifts'
-  | 'Charitable Donations'
+  | 'CharitableDonations'
   // Travel
   | 'Accommodation'
   | 'Activities'
@@ -99,17 +99,17 @@ export type SubCategory =
 
 // Map main categories to their subcategories
 export const CATEGORY_MAPPING: Record<MainCategory, SubCategory[]> = {
-  'Housing': ['Mortgage', 'Rent', 'Utilities', 'Home Insurance', 'Property Taxes', 'Home Maintenance & Repairs'],
-  'Transportation': ['Public Transportation', 'Fuel', 'Car Insurance', 'Car Maintenance & Repairs', 'Parking', 'Road Tax', 'Tolls', 'Ride-Sharing Services', 'OV-chipkaart recharges'],
-  'Food & Groceries': ['Groceries', 'Restaurants & Dining Out', 'Takeaway/Delivery', 'Coffee/Snacks'],
-  'Personal Care & Health': ['Health Insurance', 'Pharmacy/Medications', 'Gym & Fitness', 'Personal Care Products', 'Doctor/Specialist Visits'],
-  'Kids & Family': ['Childcare', 'Kids Activities & Entertainment'],
-  'Entertainment & Leisure': ['Movies/Cinema', 'Events/Concerts/Attractions', 'Hobbies & Recreation', 'Lottery/Gambling'],
-  'Shopping': ['Clothing', 'Electronics & Appliances', 'Home Goods & Furniture', 'Books & Stationery'],
-  'Education': ['Tuition/School Fees', 'Books & Supplies', 'Language Classes'],
-  'Financial Expenses': ['Bank Fees', 'Credit Card Payments', 'Loan Payments', 'Transfer Fees'],
-  'Income': ['Salary', 'Other Income', 'Compensation'],
-  'Gifts & Donations': ['Gifts', 'Charitable Donations'],
+  'Housing': ['Mortgage', 'Rent', 'Utilities', 'HomeInsurance', 'PropertyTaxes', 'HomeMaintenanceAndRepairs'],
+  'Transportation': ['PublicTransportation', 'Fuel', 'CarInsurance', 'CarMaintenanceAndRepairs', 'Parking', 'RoadTax', 'Tolls', 'RideSharingServices', 'OVChipkaartRecharges'],
+  'FoodAndGroceries': ['Groceries', 'RestaurantsAndDiningOut', 'TakeawayDelivery', 'CoffeeSnacks'],
+  'PersonalCareAndHealth': ['HealthInsurance', 'PharmacyMedications', 'GymAndFitness', 'PersonalCareProducts', 'DoctorSpecialistVisits'],
+  'KidsAndFamily': ['Childcare', 'KidsActivitiesAndEntertainment'],
+  'EntertainmentAndLeisure': ['MoviesCinema', 'EventsConcertsAttractions', 'HobbiesAndRecreation', 'LotteryGambling'],
+  'Shopping': ['Clothing', 'ElectronicsAndAppliances', 'HomeGoodsAndFurniture', 'BooksAndStationery'],
+  'Education': ['TuitionSchoolFees', 'BooksAndSupplies', 'LanguageClasses'],
+  'FinancialExpenses': ['BankFees', 'CreditCardPayments', 'LoanPayments', 'TransferFees'],
+  'Income': ['Salary', 'OtherIncome', 'Compensation'],
+  'GiftsAndDonations': ['Gifts', 'CharitableDonations'],
   'Travel': ['Accommodation', 'Activities', 'Food', 'Transportation'],
   'Miscellaneous': ['Other']
 };
@@ -118,15 +118,15 @@ export const CATEGORY_MAPPING: Record<MainCategory, SubCategory[]> = {
 export const CATEGORY_COLORS: Record<MainCategory, string> = {
   'Housing': '#2196F3',     // Blue
   'Transportation': '#FF9800', // Orange
-  'Food & Groceries': '#8BC34A', // Light Green
-  'Personal Care & Health': '#F44336',  // Red
-  'Kids & Family': '#E91E63',   // Pink
-  'Entertainment & Leisure': '#FF5722', // Deep Orange
+  'FoodAndGroceries': '#8BC34A', // Light Green
+  'PersonalCareAndHealth': '#F44336',  // Red
+  'KidsAndFamily': '#E91E63',   // Pink
+  'EntertainmentAndLeisure': '#FF5722', // Deep Orange
   'Shopping': '#795548',    // Brown
   'Education': '#009688',   // Teal
-  'Financial Expenses': '#9C27B0',     // Purple
+  'FinancialExpenses': '#9C27B0',     // Purple
   'Income': '#4CAF50',      // Green
-  'Gifts & Donations': '#CDDC39',    // Lime
+  'GiftsAndDonations': '#CDDC39',    // Lime
   'Travel': '#3F51B5', // Indigo
   'Miscellaneous': '#9E9E9E'        // Grey
 };
@@ -141,8 +141,8 @@ export interface Transaction {
   description: string;
   amount: number;
   type: TransactionType;
-  mainCategory: MainCategory;
-  subCategory: SubCategory;
+  mainCategory: string;
+  subCategory: string;
   account: string;
   counterparty: string | null;
   notes: string | null;
