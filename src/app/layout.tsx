@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/react";
+import AppLayout from "@/components/AppLayout";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -9,19 +9,19 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "House Keeping - Expense Tracker",
-  description: "Track and manage your expenses with ease",
+  title: "House Keeping",
+  description: "Personal finance management app",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
+        <AppLayout>{children}</AppLayout>
       </body>
     </html>
   );

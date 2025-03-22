@@ -1,6 +1,6 @@
 'use client';
 
-import { Transaction, CategoryName, CATEGORY_COLORS } from '@/types/transaction';
+import { Transaction, MainCategory, CATEGORY_COLORS } from '@/types/transaction';
 import { useMemo } from 'react';
 
 interface CategoryCardsProps {
@@ -9,18 +9,18 @@ interface CategoryCardsProps {
 
 export default function CategoryCards({ transactions }: CategoryCardsProps) {
   const categoryTotals = useMemo(() => {
-    const totals: Record<CategoryName, number> = {} as Record<CategoryName, number>;
+    const totals: Record<MainCategory, number> = {} as Record<MainCategory, number>;
     
     transactions.forEach(transaction => {
-      const category = transaction.category;
+      const mainCategory = transaction.mainCategory as MainCategory;
       const amount = transaction.amount;
       
-      if (!totals[category]) {
-        totals[category] = 0;
+      if (!totals[mainCategory]) {
+        totals[mainCategory] = 0;
       }
       
       if (transaction.type === 'debit') {
-        totals[category] += amount;
+        totals[mainCategory] += amount;
       }
     });
     
@@ -29,7 +29,7 @@ export default function CategoryCards({ transactions }: CategoryCardsProps) {
       .filter(([_, amount]) => amount > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([category, amount]) => ({
-        category: category as CategoryName,
+        category: category as MainCategory,
         amount
       }));
   }, [transactions]);
@@ -52,7 +52,7 @@ export default function CategoryCards({ transactions }: CategoryCardsProps) {
                   className="w-3 h-3 rounded-full mr-2"
                   style={{ backgroundColor: CATEGORY_COLORS[category] }}
                 />
-                <h3 className="font-medium">{category}</h3>
+                <h3 className="font-medium">{category.replace(/([A-Z])/g, ' $1').trim()}</h3>
               </div>
               <span className="text-lg font-bold">€{amount.toFixed(2)}</span>
             </div>

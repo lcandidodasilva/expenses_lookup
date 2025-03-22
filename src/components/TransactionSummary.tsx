@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Transaction, CategoryName, CATEGORY_COLORS } from '@/types/transaction';
+import { Transaction, MainCategory, CATEGORY_COLORS } from '@/types/transaction';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -30,7 +30,7 @@ export default function TransactionSummary({ transactions }: TransactionSummaryP
   const [summary, setSummary] = useState({
     totalIncome: 0,
     totalExpenses: 0,
-    categoryTotals: {} as Record<CategoryName, number>,
+    categoryTotals: {} as Record<MainCategory, number>,
   });
 
   useEffect(() => {
@@ -42,10 +42,21 @@ export default function TransactionSummary({ transactions }: TransactionSummaryP
           } else {
             acc.totalExpenses += transaction.amount;
           }
-          acc.categoryTotals[transaction.category] = (acc.categoryTotals[transaction.category] || 0) + transaction.amount;
+          
+          const mainCategory = transaction.mainCategory as MainCategory;
+          // Initialize the category if it doesn't exist
+          if (!acc.categoryTotals[mainCategory]) {
+            acc.categoryTotals[mainCategory] = 0;
+          }
+          
+          // Only add to category totals if it's a debit (expense)
+          if (transaction.type === 'debit') {
+            acc.categoryTotals[mainCategory] += transaction.amount;
+          }
+          
           return acc;
         },
-        { totalIncome: 0, totalExpenses: 0, categoryTotals: {} as Record<CategoryName, number> }
+        { totalIncome: 0, totalExpenses: 0, categoryTotals: {} as Record<MainCategory, number> }
       );
 
       setSummary(totals);
@@ -55,12 +66,12 @@ export default function TransactionSummary({ transactions }: TransactionSummaryP
   }, [transactions]);
 
   const pieData = {
-    labels: Object.keys(summary.categoryTotals),
+    labels: Object.keys(summary.categoryTotals).map(category => category.replace(/([A-Z])/g, ' $1').trim()),
     datasets: [
       {
         data: Object.values(summary.categoryTotals),
         backgroundColor: Object.keys(summary.categoryTotals).map(
-          (category) => CATEGORY_COLORS[category as CategoryName]
+          (category) => CATEGORY_COLORS[category as MainCategory]
         ),
         borderWidth: 1,
       },
