@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, $Enums } from '@prisma/client';
 import { Transaction, MainCategory, SubCategory, MAIN_CATEGORIES, CATEGORY_MAPPING } from '../types/transaction';
 
 const prisma = new PrismaClient();
@@ -267,21 +267,77 @@ const DB_TO_DISPLAY_SUBCATEGORY: Record<SubCategory, string> = {
   'Other': 'Other'
 };
 
-// Convert display names to database enum values
-function convertToDatabaseCategories(displayMainCategory: string, displaySubCategory: string): { mainCategory: MainCategory, subCategory: SubCategory } {
-  const mainCategory = DISPLAY_TO_DB_CATEGORY[displayMainCategory];
-  const subCategory = DISPLAY_TO_DB_SUBCATEGORY[displaySubCategory];
-  
-  if (!mainCategory) {
-    throw new Error(`Invalid main category: ${displayMainCategory}`);
+// Helper functions to check if a category is valid
+function isValidMainCategory(category: string): boolean {
+  return !!DISPLAY_TO_DB_CATEGORY[category];
+}
+
+function isValidSubCategory(category: string): boolean {
+  return !!DISPLAY_TO_DB_SUBCATEGORY[category];
+}
+
+// Helper function to validate transaction data before saving
+function validateTransaction(transaction: any): void {
+  // Validate required fields
+  if (!transaction) {
+    throw new Error('Transaction object is required');
   }
-  if (!subCategory) {
-    throw new Error(`Invalid subcategory: ${displaySubCategory}`);
+  
+  // If this is a partial transaction update, skip validation of missing fields
+  if (transaction.date !== undefined) {
+    // Only check if date is a valid Date object, don't reject future dates
+    if (!(transaction.date instanceof Date)) {
+      // Try to convert it to a Date if it's not already
+      try {
+        transaction.date = new Date(transaction.date);
+      } catch (e) {
+        throw new Error(`Could not convert to valid date: ${transaction.date}`);
+      }
+    }
+    
+    // Check if the resulting date is valid
+    if (isNaN(transaction.date.getTime())) {
+      throw new Error(`Invalid date format: ${transaction.date}`);
+    }
+    
+    // Log future dates for information only
+    const now = new Date();
+    if (transaction.date > now) {
+      console.log(`Future date detected: ${transaction.date.toISOString()} for transaction: ${transaction.description || 'Unknown'}`);
+    }
+  }
+  
+  // Validate category fields if they exist on the transaction
+  if (transaction.mainCategory !== undefined && !isValidMainCategory(transaction.mainCategory)) {
+    throw new Error(`Invalid main category: ${transaction.mainCategory}`);
+  }
+  
+  if (transaction.subCategory !== undefined && !isValidSubCategory(transaction.subCategory)) {
+    throw new Error(`Invalid sub category: ${transaction.subCategory}`);
+  }
+}
+
+// Convert display names to database enum values
+function convertToDatabaseCategories(mainCategory: string, subCategory: string): {
+  mainCategory: MainCategory;
+  subCategory: SubCategory;
+} {
+  // Default to "Other" category if invalid categories are provided
+  const dbMainCategory = DISPLAY_TO_DB_CATEGORY[mainCategory] || 'Other';
+  const dbSubCategory = DISPLAY_TO_DB_SUBCATEGORY[subCategory] || 'Other';
+  
+  // This ensures the database doesn't get invalid category combinations
+  // If the subcategory doesn't belong to the main category, default to "Other"
+  if (!CATEGORY_MAPPING[dbMainCategory as MainCategory]?.includes(dbSubCategory as SubCategory)) {
+    return {
+      mainCategory: dbMainCategory as MainCategory,
+      subCategory: 'Other' as SubCategory
+    };
   }
   
   return {
-    mainCategory,
-    subCategory
+    mainCategory: dbMainCategory as MainCategory,
+    subCategory: dbSubCategory as SubCategory
   };
 }
 
@@ -303,22 +359,6 @@ function convertToAppCategories(dbMainCategory: MainCategory, dbSubCategory: Sub
   };
 }
 
-// Helper function to validate transaction data before saving
-function validateTransaction(transaction: { mainCategory: string, subCategory: string }): void {
-  const dbMainCategory = DISPLAY_TO_DB_CATEGORY[transaction.mainCategory];
-  const dbSubCategory = DISPLAY_TO_DB_SUBCATEGORY[transaction.subCategory];
-  
-  if (!dbMainCategory) {
-    throw new Error(`Invalid main category: ${transaction.mainCategory}`);
-  }
-  if (!dbSubCategory) {
-    throw new Error(`Invalid subcategory: ${transaction.subCategory}`);
-  }
-  if (!CATEGORY_MAPPING[dbMainCategory].includes(dbSubCategory)) {
-    throw new Error(`Invalid subcategory ${transaction.subCategory} for main category ${transaction.mainCategory}`);
-  }
-}
-
 // Initialize categories in the database
 export async function initializeCategories(): Promise<void> {
   // No need to initialize categories as they are enums in the database
@@ -327,33 +367,71 @@ export async function initializeCategories(): Promise<void> {
 // Save transactions to the database
 export async function saveTransactions(transactions: Transaction[]): Promise<Transaction[]> {
   const savedTransactions: Transaction[] = [];
+  const errors: string[] = [];
   
   for (const transaction of transactions) {
-    validateTransaction(transaction);
-    const { mainCategory, subCategory } = convertToDatabaseCategories(transaction.mainCategory, transaction.subCategory);
-    const savedTransaction = await prisma.transaction.create({
-      data: {
-        id: transaction.id,
-        date: transaction.date,
-        description: transaction.description,
-        amount: transaction.amount,
-        type: transaction.type,
-        mainCategory,
-        subCategory,
-        account: transaction.account,
-        counterparty: transaction.counterparty,
-        notes: transaction.notes
+    try {
+      validateTransaction(transaction);
+      
+      // Check for duplicates based on date, description, amount, and type
+      const existingTransaction = await prisma.transaction.findFirst({
+        where: {
+          date: transaction.date,
+          description: transaction.description,
+          amount: transaction.amount,
+          type: transaction.type,
+        }
+      });
+      
+      if (existingTransaction) {
+        console.log(`Skipping duplicate transaction: ${transaction.description} on ${transaction.date.toISOString()}`);
+        continue; // Skip this transaction and move to the next one
       }
-    });
-    
-    // Convert the database categories back to display format for the response
-    const { mainCategory: displayMainCategory, subCategory: displaySubCategory } = convertToAppCategories(savedTransaction.mainCategory, savedTransaction.subCategory);
-    savedTransactions.push({
-      ...savedTransaction,
-      mainCategory: displayMainCategory,
-      subCategory: displaySubCategory
-    });
+      
+      const { mainCategory, subCategory } = convertToDatabaseCategories(transaction.mainCategory, transaction.subCategory);
+      const savedTransaction = await prisma.transaction.create({
+        data: {
+          id: transaction.id,
+          date: transaction.date,
+          description: transaction.description,
+          amount: transaction.amount,
+          type: transaction.type,
+          mainCategory,
+          subCategory,
+          account: transaction.account,
+          counterparty: transaction.counterparty,
+          notes: transaction.notes
+        }
+      });
+      
+      // Convert the database categories back to display format for the response
+      const { mainCategory: displayMainCategory, subCategory: displaySubCategory } = convertToAppCategories(savedTransaction.mainCategory, savedTransaction.subCategory);
+      savedTransactions.push({
+        ...savedTransaction,
+        mainCategory: displayMainCategory,
+        subCategory: displaySubCategory
+      });
+    } catch (error: any) {
+      // Log the error but continue processing other transactions
+      const errorMessage = `Error saving transaction ${transaction.description || ''} (${transaction.date?.toISOString() || 'unknown date'}): ${error.message}`;
+      console.error(errorMessage);
+      errors.push(errorMessage);
+      
+      // If we've hit too many errors, stop processing
+      if (errors.length > 50) {
+        console.error(`Stopping after ${errors.length} transaction errors`);
+        break;
+      }
+    }
   }
+  
+  // If all transactions failed, throw an error
+  if (errors.length === transactions.length) {
+    throw new Error(`All ${transactions.length} transactions failed to save. First error: ${errors[0]}`);
+  }
+  
+  // Log a summary
+  console.log(`Processed ${transactions.length} transactions: ${savedTransactions.length} saved, ${errors.length} errors`);
   
   return savedTransactions;
 }

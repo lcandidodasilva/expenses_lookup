@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { categorizeWithGemini } from '@/utils/geminiCategorizer';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
-import { CategoryName } from '@prisma/client';
+import { MainCategory, SubCategory } from '@/types/transaction';
 
 // Process transactions in batches to avoid overwhelming the API
 const BATCH_SIZE = 5;
@@ -17,33 +17,41 @@ async function processBatch(transactions: any[], startIdx: number, batchSize: nu
       try {
         console.log(`Processing transaction: ${transaction.id} - ${transaction.description}`);
         
+        // Determine the transaction type
+        const type = transaction.amount >= 0 ? 'credit' : 'debit';
+        
         // Use Gemini to categorize the transaction
-        const newCategory = await categorizeWithGemini(transaction.description);
+        const newCategory = await categorizeWithGemini(transaction.description, type);
         
-        console.log(`Categorized "${transaction.description}" as: ${newCategory}`);
+        console.log(`Categorized "${transaction.description}" as: ${newCategory.mainCategory} -> ${newCategory.subCategory}`);
         
-        // Only update if the category changed
-        if (newCategory !== 'Other') {
+        // Only update if the category is not Miscellaneous/Other
+        if (newCategory.mainCategory !== 'Miscellaneous' || newCategory.subCategory !== 'Other') {
           try {
             await prisma.transaction.update({
               where: { id: transaction.id },
-              data: { category: newCategory as unknown as CategoryName }
+              data: { 
+                mainCategory: newCategory.mainCategory as MainCategory,
+                subCategory: newCategory.subCategory as SubCategory
+              }
             });
             
-            console.log(`Updated transaction ${transaction.id} to category: ${newCategory}`);
+            console.log(`Updated transaction ${transaction.id} to category: ${newCategory.mainCategory} -> ${newCategory.subCategory}`);
             
             return {
               id: transaction.id,
-              oldCategory: 'Other',
-              newCategory
+              oldMainCategory: transaction.mainCategory || 'Miscellaneous',
+              oldSubCategory: transaction.subCategory || 'Other',
+              newMainCategory: newCategory.mainCategory,
+              newSubCategory: newCategory.subCategory
             };
           } catch (updateError: any) {
             console.error(`Error updating transaction ${transaction.id}:`, updateError);
-            console.error(`Failed to update to category: ${newCategory}, error: ${updateError.message || 'Unknown error'}`);
+            console.error(`Failed to update to category: ${newCategory.mainCategory} -> ${newCategory.subCategory}, error: ${updateError.message || 'Unknown error'}`);
             return null;
           }
         } else {
-          console.log(`Keeping transaction ${transaction.id} as 'Other'`);
+          console.log(`Keeping transaction ${transaction.id} as '${transaction.mainCategory || 'Miscellaneous'} -> ${transaction.subCategory || 'Other'}'`);
         }
         
         return null;
@@ -62,7 +70,10 @@ export async function POST(request: Request) {
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get('month'); // Format: YYYY-MM
     
-    let whereClause: any = { category: 'Other' };
+    let whereClause: any = { 
+      mainCategory: 'Miscellaneous',
+      subCategory: 'Other'
+    };
     let monthLabel = 'all time';
     
     // If month is specified, filter transactions for that month
@@ -82,7 +93,7 @@ export async function POST(request: Request) {
       monthLabel = format(startDate, 'MMMM yyyy');
     }
     
-    // Find transactions with category 'Other' for the specified month (or all time)
+    // Find transactions with category 'Miscellaneous/Other' for the specified month (or all time)
     const transactions = await prisma.transaction.findMany({
       where: whereClause,
       orderBy: { date: 'asc' }

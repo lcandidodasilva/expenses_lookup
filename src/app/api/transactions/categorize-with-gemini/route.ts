@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { categorizeWithGemini } from '@/utils/geminiCategorizer';
+import { MainCategory, SubCategory } from '@/types/transaction';
 
 export async function POST(request: Request) {
   try {
@@ -27,19 +28,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Categorize the transaction using Gemini
-    const { mainCategory, subCategory } = await categorizeWithGemini(description);
-    
-    // Convert to database enum values
-    const dbMainCategory = mainCategory.replace(/\s+&\s+/g, 'And').replace(/\s+/g, '');
-    const dbSubCategory = subCategory.replace(/\s+&\s+/g, 'And').replace(/\//g, '').replace(/\s+/g, '');
+    // Determine transaction type based on amount
+    const type = transaction.amount >= 0 ? 'credit' : 'debit';
 
+    // Categorize the transaction using Gemini
+    const { mainCategory, subCategory } = await categorizeWithGemini(description, type);
+    
     // Update the transaction in the database
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
-        mainCategory: dbMainCategory,
-        subCategory: dbSubCategory,
+        mainCategory: mainCategory as MainCategory,
+        subCategory: subCategory as SubCategory,
       },
     });
 
@@ -49,14 +49,14 @@ export async function POST(request: Request) {
         pattern: description.toLowerCase(),
       },
       update: {
-        mainCategory: dbMainCategory,
-        subCategory: dbSubCategory,
+        mainCategory: mainCategory as MainCategory,
+        subCategory: subCategory as SubCategory,
         usageCount: { increment: 1 },
       },
       create: {
         pattern: description.toLowerCase(),
-        mainCategory: dbMainCategory,
-        subCategory: dbSubCategory,
+        mainCategory: mainCategory as MainCategory,
+        subCategory: subCategory as SubCategory,
         confidence: 0.9, // High confidence since it's from Gemini
         usageCount: 1,
       },
@@ -107,19 +107,18 @@ export async function PUT(request: Request) {
       // Process each transaction in the batch
       const batchPromises = transactions.map(async (transaction) => {
         try {
-          // Categorize the transaction using Gemini
-          const { mainCategory, subCategory } = await categorizeWithGemini(transaction.description);
+          // Determine transaction type based on amount
+          const type = transaction.amount >= 0 ? 'credit' : 'debit';
           
-          // Convert to database enum values
-          const dbMainCategory = mainCategory.replace(/\s+&\s+/g, 'And').replace(/\s+/g, '');
-          const dbSubCategory = subCategory.replace(/\s+&\s+/g, 'And').replace(/\//g, '').replace(/\s+/g, '');
-
+          // Categorize the transaction using Gemini
+          const { mainCategory, subCategory } = await categorizeWithGemini(transaction.description, type);
+          
           // Update the transaction in the database
           const updatedTransaction = await prisma.transaction.update({
             where: { id: transaction.id },
             data: {
-              mainCategory: dbMainCategory,
-              subCategory: dbSubCategory,
+              mainCategory: mainCategory as MainCategory,
+              subCategory: subCategory as SubCategory,
             },
           });
 
@@ -129,14 +128,14 @@ export async function PUT(request: Request) {
               pattern: transaction.description.toLowerCase(),
             },
             update: {
-              mainCategory: dbMainCategory,
-              subCategory: dbSubCategory,
+              mainCategory: mainCategory as MainCategory,
+              subCategory: subCategory as SubCategory,
               usageCount: { increment: 1 },
             },
             create: {
               pattern: transaction.description.toLowerCase(),
-              mainCategory: dbMainCategory,
-              subCategory: dbSubCategory,
+              mainCategory: mainCategory as MainCategory,
+              subCategory: subCategory as SubCategory,
               confidence: 0.9, // High confidence since it's from Gemini
               usageCount: 1,
             },

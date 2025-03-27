@@ -42,6 +42,50 @@ yarn dev
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Deployment
+
+This application is deployed on Vercel. Here's how to deploy it yourself:
+
+### Deploying to Vercel
+
+1. Create a Vercel account at [vercel.com](https://vercel.com)
+
+2. Install the Vercel CLI:
+```bash
+npm install -g vercel
+```
+
+3. Login to Vercel:
+```bash
+vercel login
+```
+
+4. Deploy to Vercel:
+```bash
+vercel
+```
+
+5. For production deployment:
+```bash
+vercel --prod
+```
+
+### Environment Variables
+
+For deployment, you'll need to set up the following environment variables:
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `NEXT_PUBLIC_GEMINI_API_KEY`: API key for Google's Gemini AI (for transaction categorization)
+
+### Database Migrations
+
+When deploying updates that include database schema changes:
+
+1. Run the database migration script:
+```bash
+node scripts/db-migrate.js
+```
+
 ## CSV File Format
 
 The application expects CSV files with the following columns:
@@ -66,6 +110,10 @@ date,description,amount
 - Papa Parse (CSV parsing)
 - Date-fns
 - Heroicons
+- Prisma ORM
+- PostgreSQL (Neon.tech)
+- Vercel for hosting
+- Google Gemini AI for categorization
 
 ## Contributing
 

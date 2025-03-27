@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { parseCSV } from '@/utils/csvParser';
+import { Transaction } from '@/types/transaction';
 
 interface UploadTransactionsProps {
   onUploadComplete: () => void;
@@ -9,31 +10,49 @@ interface UploadTransactionsProps {
 
 export default function UploadTransactions({ onUploadComplete }: UploadTransactionsProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    try {
-      setIsUploading(true);
-      const transactions = await parseCSV(file);
+    setError(null);
+    setIsUploading(true);
 
+    try {
+      // Parse the CSV file into transactions
+      const transactions: Transaction[] = await parseCSV(file);
+      
+      if (!transactions.length) {
+        setError('No valid transactions found in the CSV file');
+        setIsUploading(false);
+        return;
+      }
+      
+      console.log(`Sending ${transactions.length} transactions to the API`);
+
+      // Send the transactions directly without wrapping them in an object
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ transactions }),
+        body: JSON.stringify(transactions),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload transactions');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload transactions');
       }
 
+      const data = await response.json();
+      console.log(`Successfully saved ${data.newTransactionsCount} new transactions`);
+      
       onUploadComplete();
       event.target.value = ''; // Reset file input
     } catch (error) {
       console.error('Error uploading transactions:', error);
+      setError(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setIsUploading(false);
     }
@@ -57,6 +76,12 @@ export default function UploadTransactions({ onUploadComplete }: UploadTransacti
           className="sr-only"
         />
       </label>
+      
+      {error && (
+        <div className="mt-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
     </div>
   );
 } 
